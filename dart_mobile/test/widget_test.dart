@@ -1,9 +1,9 @@
-// This is a basic Flutter widget test.
+// Smoke test dasar untuk Exam Poncol.
 //
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
+// Test ini hanya memastikan LoginScreen bisa dirender tanpa error dan
+// menampilkan elemen-elemen kunci (judul, tombol MASUK). Test counter
+// bawaan template Flutter (`Counter increments smoke test`) dihapus karena
+// sudah tidak relevan — aplikasi ini bukan counter app.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -11,20 +11,21 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:apk_ujian/main.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
+  testWidgets('LoginScreen menampilkan judul dan tombol MASUK', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(const ExamPoncolApp());
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+    expect(find.text('EXAM PONCOL'), findsOneWidget);
+    expect(find.text('MASUK'), findsOneWidget);
+    expect(find.text('Secure Examination System'), findsOneWidget);
+  });
 
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
+  testWidgets('Form login memiliki 3 input field', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(const ExamPoncolApp());
 
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+    expect(find.byType(TextField), findsNWidgets(3));
   });
 }
