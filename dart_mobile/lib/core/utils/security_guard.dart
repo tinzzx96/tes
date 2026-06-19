@@ -9,20 +9,28 @@ class SecurityGuard {
 
   static const MethodChannel _channel = MethodChannel('com.exam.poncol/security');
 
-  // ── Wakelock ──────────────────────────────────────────────────────────────
+  /// EventChannel untuk notifikasi instan saat window Activity kehilangan
+  /// fokus — digunakan sebagai pengganti polling hasWindowFocus() agar
+  /// floating app terdeteksi segera tanpa delay 1 detik.
+  static const EventChannel _focusChannel = EventChannel('com.exam.poncol/focus_events');
+
+  // ===== Wakelock =====
   static Future<void> enableWakelock() => WakelockPlus.enable();
   static Future<void> disableWakelock() => WakelockPlus.disable();
 
-  // ── Immersive Mode ────────────────────────────────────────────────────────
-  static Future<void> enterImmersiveMode() =>
-      SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+  // ===== Immersive Mode =====
+  static Future<void> enterImmersiveMode() {
+    return SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+  }
 
-  static Future<void> exitImmersiveMode() => SystemChrome.setEnabledSystemUIMode(
-    SystemUiMode.manual,
-    overlays: SystemUiOverlay.values,
-  );
+  static Future<void> exitImmersiveMode() {
+    return SystemChrome.setEnabledSystemUIMode(
+      SystemUiMode.manual,
+      overlays: SystemUiOverlay.values,
+    );
+  }
 
-  // ── Immersive UI Lock (existing) ──────────────────────────────────────────
+  // ===== Lock/Unlock UI =====
   static Future<void> lockUi() async {
     try {
       await _channel.invokeMethod('lockUi');
@@ -35,7 +43,7 @@ class SecurityGuard {
     } catch (_) {}
   }
 
-  // ── FLAG_SECURE — Screenshot & Recording Protection ───────────────────────
+  // ===== FLAG_SECURE =====
   static Future<void> enableScreenProtection() async {
     try {
       await _channel.invokeMethod('enableSecureFlag');
@@ -48,36 +56,61 @@ class SecurityGuard {
     } catch (_) {}
   }
 
-  // ── Screen Pinning (PRD §18) ──────────────────────────────────────────────
+  // ===== Screen Pinning (LockTask) =====
 
-  /// Mengaktifkan Screen Pinning Android + FLAG_SECURE + Immersive Mode
-  /// lewat satu panggilan native. Siswa perlu menekan "Mengerti" pada
-  /// dialog konfirmasi sistem Android untuk menyelesaikan proses semat.
+  /// Memicu startLockTask() di sisi Android — menyematkan layar agar murid
+  /// tidak bisa keluar ke home/recent apps. Perlu konfirmasi murid (dialog
+  /// sistem Android) atau whitelist DPC untuk silent pinning.
   static Future<void> startLockTask() async {
     try {
       await _channel.invokeMethod('startLockTask');
     } catch (_) {}
   }
 
-  /// Melepas Screen Pinning dan mencabut FLAG_SECURE.
-  /// Dipanggil saat ujian di-submit atau pengawas membuka blokir.
+  /// Melepas screen pinning. Dipanggil saat ujian selesai / submit normal.
   static Future<void> stopLockTask() async {
     try {
       await _channel.invokeMethod('stopLockTask');
     } catch (_) {}
   }
 
-  /// Mengembalikan `true` jika Screen Pinning sedang aktif.
-  /// Dipakai oleh anti-cheat loop di [ExamPlayerPage].
+  /// Mengembalikan true jika layar sedang dalam kondisi disematkan
+  /// (LOCK_TASK_MODE_LOCKED atau LOCK_TASK_MODE_PINNED).
   static Future<bool> isScreenPinned() async {
     try {
-      return await _channel.invokeMethod<bool>('isScreenPinned') ?? false;
+      final result = await _channel.invokeMethod<bool>('isScreenPinned');
+      return result ?? false;
     } catch (_) {
       return false;
     }
   }
 
-  // ── Device Info ───────────────────────────────────────────────────────────
+  /// Mengembalikan true jika window Activity MASIH memegang fokus input
+  /// (tidak ada overlay/floating app di atasnya). Ini mendeteksi floating
+  /// window OEM (Smart Sidebar, Floating Apps Oppo/Vivo/Realme, dsb) yang
+  /// TIDAK memicu perubahan AppLifecycleState karena bukan Activity baru,
+  /// hanya window overlay biasa — sehingga WidgetsBindingObserver saja
+  /// tidak cukup untuk mendeteksinya.
+  static Future<bool> hasWindowFocus() async {
+    try {
+      final result = await _channel.invokeMethod<bool>('hasWindowFocus');
+      return result ?? true;
+    } catch (_) {
+      return true;
+    }
+  }
+
+  /// Stream yang memancarkan [false] setiap kali window Activity KEHILANGAN
+  /// fokus (floating app/overlay muncul di atasnya) dan [true] saat fokus
+  /// kembali. Menggunakan EventChannel sehingga notifikasi INSTAN dari
+  /// native — tidak menunggu polling 1 detik dari anti-cheat timer.
+  static Stream<bool> get windowFocusStream {
+    return _focusChannel
+        .receiveBroadcastStream()
+        .map((event) => event as bool);
+  }
+
+  // ===== Device Info =====
   static Future<String> getDeviceName() async {
     final plugin = DeviceInfoPlugin();
     try {
@@ -93,7 +126,7 @@ class SecurityGuard {
     return 'UNKNOWN DEVICE';
   }
 
-  // ── Network Info ──────────────────────────────────────────────────────────
+  // ===== Network Info =====
   static Future<String> getWifiName() async {
     final info = NetworkInfo();
     try {
