@@ -9,23 +9,20 @@ class SecurityGuard {
 
   static const MethodChannel _channel = MethodChannel('com.exam.poncol/security');
 
-  // ===== Wakelock =====
+  // ── Wakelock ──────────────────────────────────────────────────────────────
   static Future<void> enableWakelock() => WakelockPlus.enable();
   static Future<void> disableWakelock() => WakelockPlus.disable();
 
-  // ===== Immersive Mode (Native Flutter) =====
-  static Future<void> enterImmersiveMode() {
-    return SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
-  }
+  // ── Immersive Mode ────────────────────────────────────────────────────────
+  static Future<void> enterImmersiveMode() =>
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
 
-  static Future<void> exitImmersiveMode() {
-    return SystemChrome.setEnabledSystemUIMode(
-      SystemUiMode.manual,
-      overlays: SystemUiOverlay.values,
-    );
-  }
+  static Future<void> exitImmersiveMode() => SystemChrome.setEnabledSystemUIMode(
+    SystemUiMode.manual,
+    overlays: SystemUiOverlay.values,
+  );
 
-  // ===== Lock/Unlock UI via Native (total lockdown) =====
+  // ── Immersive UI Lock (existing) ──────────────────────────────────────────
   static Future<void> lockUi() async {
     try {
       await _channel.invokeMethod('lockUi');
@@ -38,7 +35,7 @@ class SecurityGuard {
     } catch (_) {}
   }
 
-  // ===== FLAG_SECURE (Screenshot Protection) =====
+  // ── FLAG_SECURE — Screenshot & Recording Protection ───────────────────────
   static Future<void> enableScreenProtection() async {
     try {
       await _channel.invokeMethod('enableSecureFlag');
@@ -51,7 +48,36 @@ class SecurityGuard {
     } catch (_) {}
   }
 
-  // ===== Device Info =====
+  // ── Screen Pinning (PRD §18) ──────────────────────────────────────────────
+
+  /// Mengaktifkan Screen Pinning Android + FLAG_SECURE + Immersive Mode
+  /// lewat satu panggilan native. Siswa perlu menekan "Mengerti" pada
+  /// dialog konfirmasi sistem Android untuk menyelesaikan proses semat.
+  static Future<void> startLockTask() async {
+    try {
+      await _channel.invokeMethod('startLockTask');
+    } catch (_) {}
+  }
+
+  /// Melepas Screen Pinning dan mencabut FLAG_SECURE.
+  /// Dipanggil saat ujian di-submit atau pengawas membuka blokir.
+  static Future<void> stopLockTask() async {
+    try {
+      await _channel.invokeMethod('stopLockTask');
+    } catch (_) {}
+  }
+
+  /// Mengembalikan `true` jika Screen Pinning sedang aktif.
+  /// Dipakai oleh anti-cheat loop di [ExamPlayerPage].
+  static Future<bool> isScreenPinned() async {
+    try {
+      return await _channel.invokeMethod<bool>('isScreenPinned') ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  // ── Device Info ───────────────────────────────────────────────────────────
   static Future<String> getDeviceName() async {
     final plugin = DeviceInfoPlugin();
     try {
@@ -67,7 +93,7 @@ class SecurityGuard {
     return 'UNKNOWN DEVICE';
   }
 
-  // ===== Network Info =====
+  // ── Network Info ──────────────────────────────────────────────────────────
   static Future<String> getWifiName() async {
     final info = NetworkInfo();
     try {
