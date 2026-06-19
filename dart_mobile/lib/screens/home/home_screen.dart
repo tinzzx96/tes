@@ -1,3 +1,4 @@
+import 'package:apk_ujian/screens/exam/exam_player_page.dart';
 import 'package:flutter/material.dart';
 import '../../core/models/exam_schedule.dart';
 import '../../core/models/student.dart';
@@ -9,7 +10,7 @@ import '../../core/widgets/app_header.dart';
 import '../../core/widgets/avatar_badge.dart';
 import '../../core/widgets/device_status_card.dart';
 import '../../core/widgets/exam_card.dart';
-import '../exam/exam_player_screen.dart';
+import '../exam/exam_player_page.dart';
 
 /// Home Screen — sesuai mockup Frame 2.
 ///
@@ -56,7 +57,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _openExam(ExamSchedule schedule) async {
     final result = await Navigator.of(context).push<bool>(
       MaterialPageRoute(
-        builder: (_) => ExamPlayerScreen(
+        builder: (_) => ExamPlayerPage(
           examId: schedule.id,
           subjectName: schedule.subjectName,
           teacherName: schedule.teacherName,

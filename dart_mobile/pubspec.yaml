@@ -46,6 +46,9 @@ dependencies:
   # Local cache sementara (pre-database) untuk status submit per mapel.
   shared_preferences: ^2.3.3
 
+  # freeRASP
+  freerasp: ^6.6.0
+
   # CATATAN: immersive_mode (paket pihak ketiga) TIDAK dipasang karena nama
   # paket itu tidak terverifikasi ada di pub.dev. Fullscreen/immersive sudah
   # dicapai native via SystemChrome.setEnabledSystemUIMode (Flutter SDK
