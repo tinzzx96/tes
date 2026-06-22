@@ -49,6 +49,8 @@ dependencies:
   # freeRASP
   freerasp: ^6.6.0
 
+  # Connectivity Plus
+  connectivity_plus: ^6.1.0
   # CATATAN: immersive_mode (paket pihak ketiga) TIDAK dipasang karena nama
   # paket itu tidak terverifikasi ada di pub.dev. Fullscreen/immersive sudah
   # dicapai native via SystemChrome.setEnabledSystemUIMode (Flutter SDK

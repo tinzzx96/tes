@@ -2,13 +2,16 @@ import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_typography.dart';
 
-/// Bottom Navigation Bar — Home & Schedule.
+/// Bottom Navigation Bar — Home, Schedule & History.
 ///
 /// Sesuai DESIGN_SYSTEM.md Section 5 — Bottom Navigation Bar:
 /// - Background colorNavBackground (#FFFFFF)
 /// - Border atas 1px colorDivider
 /// - Icon aktif + label colorNavIconActive, tidak aktif colorNavIconInactive
 /// - Tinggi 64px, font label textLabelCaps 11sp
+///
+/// Tab ketiga (History) ditambahkan untuk Layar Riwayat Ujian — lihat
+/// Hero Exam PRD Addendum Bagian 40.B.
 class AppBottomNavBar extends StatelessWidget {
   final int currentIndex;
   final ValueChanged<int> onTap;
@@ -44,6 +47,13 @@ class AppBottomNavBar extends StatelessWidget {
               label: 'Schedule',
               isActive: currentIndex == 1,
               onTap: () => onTap(1),
+            ),
+            _NavItem(
+              icon: Icons.history_outlined,
+              activeIcon: Icons.history_rounded,
+              label: 'History',
+              isActive: currentIndex == 2,
+              onTap: () => onTap(2),
             ),
           ],
         ),

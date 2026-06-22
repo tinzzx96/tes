@@ -9,6 +9,10 @@ import '../theme/app_typography.dart';
 ///
 /// Sesuai DESIGN_SYSTEM.md Section 5 — Exam Card (Dark):
 /// - Background colorSurface, radius 8, padding 16
+/// - Aksen garis merah (primary) 4px di sisi kiri kartu, sentuhan akhir
+///   sesuai referensi desain — dirender di dalam ClipRRect yang sama
+///   dengan radius kartu, supaya sudut garis ikut melengkung rapi dan
+///   tidak terpotong kotak di pojok.
 /// - Divider vertikal kiri-kanan
 /// - Kiri: label TODAY'S EXAM + nama mapel + nama guru (merah)
 /// - Kanan: Time bold + Duration label + nilai menit
@@ -32,100 +36,125 @@ class ExamCard extends StatelessWidget {
       children: [
         Opacity(
           opacity: isCompleted ? 0.55 : 1,
-          child: Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: isCompleted
-                  ? Color.alphaBlend(
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(AppRadius.cardDark),
+            child: Stack(
+              children: [
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.fromLTRB(20, 16, 16, 16),
+                  decoration: BoxDecoration(
+                    color: isCompleted
+                        ? Color.alphaBlend(
                       Colors.black.withOpacity(0.35),
                       AppColors.surface,
                     )
-                  : AppColors.surface,
-              borderRadius: BorderRadius.circular(AppRadius.cardDark),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Stack(
-                  children: [
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        // Bagian kiri: label, nama mapel, nama guru
-                        Expanded(
-                          flex: 3,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisSize: MainAxisSize.min,
+                        : AppColors.surface,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Stack(
+                        children: [
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.center,
                             children: [
-                              Text(
-                                "TODAY'S EXAM",
-                                style: AppTypography.labelCaps,
+                              // Bagian kiri: label, nama mapel, nama guru
+                              Expanded(
+                                flex: 3,
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      "TODAY'S EXAM",
+                                      style: AppTypography.labelCaps,
+                                    ),
+                                    const SizedBox(height: 10),
+                                    Text(
+                                      schedule.subjectName.toUpperCase(),
+                                      style: AppTypography.examTitle,
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      '-${schedule.teacherShortName}',
+                                      style: AppTypography.examTitle.copyWith(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w600,
+                                        color: AppColors.textAccent,
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
-                              const SizedBox(height: 10),
-                              Text(
-                                schedule.subjectName.toUpperCase(),
-                                style: AppTypography.examTitle,
+                              Container(
+                                width: 1,
+                                height: 56,
+                                margin:
+                                const EdgeInsets.symmetric(horizontal: 12),
+                                color: const Color(0xFF444444),
                               ),
-                              const SizedBox(height: 2),
-                              Text(
-                                '-${schedule.teacherShortName}',
-                                style: AppTypography.examTitle.copyWith(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
-                                  color: AppColors.textAccent,
+                              // Bagian kanan: Time + Duration
+                              Expanded(
+                                flex: 2,
+                                child: Padding(
+                                  padding: const EdgeInsets.only(top: 18),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                    CrossAxisAlignment.start,
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text('Time',
+                                          style:
+                                          AppTypography.durationLabel),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        schedule.timeRangeDash,
+                                        style: AppTypography.timeBold,
+                                        maxLines: 1,
+                                      ),
+                                      const SizedBox(height: 8),
+                                      Text('Duration',
+                                          style:
+                                          AppTypography.durationLabel),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        '${schedule.durationMinutes} Min',
+                                        style: AppTypography.durationValue,
+                                      ),
+                                    ],
+                                  ),
                                 ),
                               ),
                             ],
                           ),
-                        ),
-                        Container(
-                          width: 1,
-                          height: 56,
-                          margin: const EdgeInsets.symmetric(horizontal: 12),
-                          color: const Color(0xFF444444),
-                        ),
-                        // Bagian kanan: Time + Duration
-                        Expanded(
-                          flex: 2,
-                          child: Padding(
-                            padding: const EdgeInsets.only(top: 18),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text('Time', style: AppTypography.durationLabel),
-                                const SizedBox(height: 2),
-                                Text(
-                                  schedule.timeRangeDash,
-                                  style: AppTypography.timeBold,
-                                  maxLines: 1,
-                                ),
-                                const SizedBox(height: 8),
-                                Text('Duration', style: AppTypography.durationLabel),
-                                const SizedBox(height: 2),
-                                Text(
-                                  '${schedule.durationMinutes} Min',
-                                  style: AppTypography.durationValue,
-                                ),
-                              ],
-                            ),
+                          Positioned(
+                            top: 0,
+                            right: 0,
+                            child: isCompleted
+                                ? const SizedBox.shrink()
+                                : const _SegeraBadge(),
                           ),
-                        ),
-                      ],
-                    ),
-                    Positioned(
-                      top: 0,
-                      right: 0,
-                      child: isCompleted ? const SizedBox.shrink() : const _SegeraBadge(),
-                    ),
-                  ],
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      _StartExamButton(
+                        onPressed: isCompleted ? null : onStartExam,
+                        isCompleted: isCompleted,
+                      ),
+                    ],
+                  ),
                 ),
-                const SizedBox(height: 16),
-                _StartExamButton(
-                  onPressed: isCompleted ? null : onStartExam,
-                  isCompleted: isCompleted,
+                // ── Aksen garis merah di sisi kiri ───────────────────────
+                Positioned(
+                  top: 0,
+                  bottom: 0,
+                  left: 0,
+                  child: Container(
+                    width: 4,
+                    color:
+                    isCompleted ? AppColors.disabledOutline : AppColors.primary,
+                  ),
                 ),
               ],
             ),
@@ -190,7 +219,8 @@ class _StartExamButton extends StatelessWidget {
       child: ElevatedButton(
         onPressed: onPressed,
         style: ElevatedButton.styleFrom(
-          backgroundColor: isCompleted ? AppColors.disabledOutline : AppColors.primary,
+          backgroundColor:
+          isCompleted ? AppColors.disabledOutline : AppColors.primary,
           disabledBackgroundColor: AppColors.disabledOutline,
           foregroundColor: AppColors.textPrimary,
           padding: const EdgeInsets.symmetric(vertical: 14),

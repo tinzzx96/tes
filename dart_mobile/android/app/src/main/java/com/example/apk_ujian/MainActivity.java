@@ -1,36 +1,25 @@
 package com.example.apk_ujian;
-# tes
+
 import android.app.ActivityManager;
+import android.app.AppOpsManager;
+import android.app.usage.UsageEvents;
+import android.app.usage.UsageStatsManager;
 import android.content.Context;
+import android.content.Intent;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Process;
+import android.provider.Settings;
 import android.view.View;
 import android.view.WindowManager;
 import io.flutter.embedding.android.FlutterActivity;
 import io.flutter.embedding.engine.FlutterEngine;
-import io.flutter.plugin.common.EventChannel;
 import io.flutter.plugin.common.MethodChannel;
 
 public class MainActivity extends FlutterActivity {
 
     private static final String CHANNEL = "com.exam.poncol/security";
-    private static final String FOCUS_CHANNEL = "com.exam.poncol/focus_events";
 
-    /**
-     * Sink EventChannel untuk mendorong event focus ke Flutter secara instan.
-     * Null jika Flutter belum subscribe ke stream (sebelum _boot() jalan).
-     */
-    private EventChannel.EventSink focusEventSink;
-
-    /**
-     * Status fokus window Activity. Saat overlay/floating app (Smart Sidebar,
-     * Floating Window OEM, dsb) tampil DI ATAS Activity ini, Android akan
-     * memanggil onWindowFocusChanged(false) — meski Activity tetap RESUMED
-     * dan WidgetsBindingObserver di Flutter TIDAK mendeteksi perubahan apa
-     * pun (karena ini bukan transisi lifecycle, hanya window focus loss).
-     * Inilah mengapa floating app ColorOS/FuntouchOS lolos dari deteksi
-     * AppLifecycleState semata.
-     */
     private boolean hasWindowFocusFlag = true;
 
     @Override
@@ -45,36 +34,16 @@ public class MainActivity extends FlutterActivity {
         getWindow().getDecorView().setFilterTouchesWhenObscured(true);
     }
 
-    /**
-     * Dipanggil Android setiap kali window ini KEHILANGAN atau MENDAPATKAN
-     * fokus input — termasuk saat floating app/overlay/notification shade
-     * tampil di atasnya. Ini jauh lebih sensitif daripada onPause/onResume
-     * untuk mendeteksi overlay non-Activity (floating window OEM).
-     */
     @Override
     public void onWindowFocusChanged(boolean hasFocus) {
         super.onWindowFocusChanged(hasFocus);
         hasWindowFocusFlag = hasFocus;
 
         if (!hasFocus) {
-            // Re-assert FLAG_SECURE + immersive setiap kali fokus hilang,
-            // beberapa OEM launcher floating window mereset flag ini.
             getWindow().setFlags(
                     WindowManager.LayoutParams.FLAG_SECURE,
                     WindowManager.LayoutParams.FLAG_SECURE
             );
-            // Kirim event ke Flutter SEGERA — tanpa menunggu polling 1 detik.
-            // Ini menangkap floating app yang mengambil fokus (keyboard terbuka,
-            // dsb.) bahkan jika FLAG_NOT_FOCUSABLE tidak di-set.
-            if (focusEventSink != null) {
-                focusEventSink.success(false);
-            }
-        } else {
-            // Fokus kembali ke Activity: beri tahu Flutter bahwa overlay sudah
-            // ditutup (opsional, untuk keperluan logging / future use).
-            if (focusEventSink != null) {
-                focusEventSink.success(true);
-            }
         }
     }
 
@@ -133,10 +102,56 @@ public class MainActivity extends FlutterActivity {
                     result.success(isScreenPinned());
                     break;
 
-                // ── BARU: status window focus, dipoll dari Dart tiap 1 detik ──
-                // true jika TIDAK ada overlay/floating app di atas Activity ini.
                 case "hasWindowFocus":
                     result.success(hasWindowFocusFlag);
+                    break;
+
+                // ── BARU: cek izin Usage Access ──────────────────────────────
+                case "hasUsageStatsPermission":
+                    result.success(hasUsageStatsPermission());
+                    break;
+
+                // ── BARU: buka halaman Settings untuk grant Usage Access ────
+                case "openUsageAccessSettings":
+                    openUsageAccessSettings();
+                    result.success(null);
+                    break;
+
+                // ── BARU: cek apakah app LAIN (selain kita) baru saja pindah
+                // ke foreground dalam beberapa detik terakhir. Ini sinyal kuat
+                // bahwa floating app/browser pihak ketiga sedang dipakai aktif
+                // di atas layar ujian.
+                case "isOtherAppForeground":
+                    result.success(isOtherAppRecentlyForeground());
+                    break;
+
+                // ── BARU: buka halaman pengaturan WiFi sistem Android ───────
+                case "openWifiSettings":
+                    try {
+                        Intent intent = new Intent(Settings.ACTION_WIFI_SETTINGS);
+                        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                        startActivity(intent);
+                        result.success(null);
+                    } catch (Exception e) {
+                        result.error("OPEN_WIFI_SETTINGS_ERROR", e.getMessage(), null);
+                    }
+                    break;
+
+                // ── BARU: buka halaman pengaturan jaringan/data seluler ─────
+                case "openNetworkSettings":
+                    try {
+                        Intent intent;
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                            intent = new Intent(Settings.Panel.ACTION_INTERNET_CONNECTIVITY);
+                        } else {
+                            intent = new Intent(Settings.ACTION_WIRELESS_SETTINGS);
+                        }
+                        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                        startActivity(intent);
+                        result.success(null);
+                    } catch (Exception e) {
+                        result.error("OPEN_NETWORK_SETTINGS_ERROR", e.getMessage(), null);
+                    }
                     break;
 
                 default:
@@ -144,25 +159,87 @@ public class MainActivity extends FlutterActivity {
                     break;
             }
         });
-
-        // EventChannel: push notifikasi focus loss ke Flutter secara instan
-        // (tidak bergantung pada polling 1 detik dari anti-cheat timer Dart).
-        // Flutter subscribe melalui SecurityGuard.windowFocusStream saat boot.
-        new EventChannel(
-                flutterEngine.getDartExecutor().getBinaryMessenger(),
-                FOCUS_CHANNEL
-        ).setStreamHandler(new EventChannel.StreamHandler() {
-            @Override
-            public void onListen(Object arguments, EventChannel.EventSink events) {
-                focusEventSink = events;
-            }
-
-            @Override
-            public void onCancel(Object arguments) {
-                focusEventSink = null;
-            }
-        });
     }
+
+    // ─────────────────────────────────────────────────────────────────────
+    // Usage Access — deteksi app lain yang baru aktif di foreground
+    // ─────────────────────────────────────────────────────────────────────
+
+    private boolean hasUsageStatsPermission() {
+        try {
+            AppOpsManager appOps =
+                    (AppOpsManager) getSystemService(Context.APP_OPS_SERVICE);
+            int mode;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                mode = appOps.unsafeCheckOpNoThrow(
+                        AppOpsManager.OPSTR_GET_USAGE_STATS,
+                        Process.myUid(),
+                        getPackageName()
+                );
+            } else {
+                //noinspection deprecation
+                mode = appOps.checkOpNoThrow(
+                        AppOpsManager.OPSTR_GET_USAGE_STATS,
+                        Process.myUid(),
+                        getPackageName()
+                );
+            }
+            return mode == AppOpsManager.MODE_ALLOWED;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    private void openUsageAccessSettings() {
+        try {
+            Intent intent = new Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS);
+            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            startActivity(intent);
+        } catch (Exception ignored) {
+        }
+    }
+
+    /**
+     * Mengecek apakah ada package SELAIN kita yang menghasilkan event
+     * MOVE_TO_FOREGROUND dalam 4 detik terakhir. Floating window/overlay app
+     * (TYPE_APPLICATION_OVERLAY) TIDAK selalu memicu event ini secara
+     * konsisten di semua OEM — sehingga ini dipakai sebagai sinyal TAMBAHAN,
+     * bukan satu-satunya sumber kebenaran. Dikombinasikan dengan
+     * onWindowFocusChanged di sisi Dart untuk menaikkan akurasi deteksi.
+     */
+    private boolean isOtherAppRecentlyForeground() {
+        if (!hasUsageStatsPermission()) return false;
+
+        try {
+            UsageStatsManager usm =
+                    (UsageStatsManager) getSystemService(Context.USAGE_STATS_SERVICE);
+            if (usm == null) return false;
+
+            long now = System.currentTimeMillis();
+            long windowStart = now - 4000; // 4 detik terakhir
+
+            UsageEvents events = usm.queryEvents(windowStart, now);
+            UsageEvents.Event event = new UsageEvents.Event();
+            String myPackage = getPackageName();
+
+            while (events.hasNextEvent()) {
+                events.getNextEvent(event);
+                boolean isForegroundEvent =
+                        event.getEventType() == UsageEvents.Event.MOVE_TO_FOREGROUND
+                                || (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
+                                && event.getEventType() == UsageEvents.Event.ACTIVITY_RESUMED);
+
+                if (isForegroundEvent && !myPackage.equals(event.getPackageName())) {
+                    return true;
+                }
+            }
+            return false;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
 
     private boolean isScreenPinned() {
         ActivityManager am = (ActivityManager) getSystemService(Context.ACTIVITY_SERVICE);

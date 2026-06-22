@@ -1,15 +1,29 @@
 import 'package:flutter/material.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
+import '../../core/utils/greeting_helper.dart';
 import '../../core/widgets/app_text_field.dart';
+import '../../core/widgets/fade_in_item.dart';
 import '../../core/widgets/primary_button.dart';
 import '../../core/widgets/warning_banner.dart';
 import '../shell/app_shell.dart';
 
 /// Login Screen — sesuai mockup Frame 1/9.
 ///
-/// Komponen: Logo + judul, status verifikasi device, 3 input (NISN,
-/// PASSWORD, TOKEN UJIAN), tombol MASUK, warning banner, dan caption versi.
+/// Komponen: Logo + judul, sapaan kontekstual + status server, status
+/// verifikasi device, 3 input (NISN, PASSWORD, TOKEN SESI), tombol MASUK,
+/// warning banner, dan caption versi. Seluruh blok masuk dengan fade-in
+/// halus saat screen pertama dibuka.
+///
+/// CATATAN PENTING — "Token Sesi" vs "Token Ujian" (JANGAN TERTUKAR):
+/// - Token Sesi (field di halaman ini): dimasukkan SEKALI saat login,
+///   untuk validasi identitas/perangkat awal sebelum murid masuk ke
+///   AppShell (Home/Schedule/History).
+/// - Token Ujian (popup terpisah, lihat ExamTokenDialog): kode unik yang
+///   diminta ULANG setiap kali murid menekan "MULAI UJIAN" di Home Screen,
+///   khusus untuk sesi pengerjaan soal yang akan dibuka. Di-generate &
+///   divalidasi backend via schema.prisma (model exam_tokens), TANPA
+///   kolom database tambahan.
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
@@ -25,11 +39,11 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _obscurePassword = true;
   bool _isLoading = false;
 
-  // TODO(integrasi-backend): device info asli harus diambil lewat
-  // package `device_info_plus` (lihat LOGIC.md - exambro-mobile key packages)
-  // lalu dicocokkan/registrasi ke Authentication API (Hero Exam PRD Section 27).
-  final String _deviceName = 'ASUS-X409FA';
-  final bool _deviceVerified = true;
+  // TODO(integrasi-backend): status koneksi server asli harus dicek lewat
+  // ping ringan ke endpoint health-check backend. Untuk sekarang true (dummy)
+  // agar UI bisa ditampilkan; relevan dengan PRD (timer & data server-side),
+  // memberi murid kepastian bahwa sistem ujian hidup sebelum login.
+  final bool _serverConnected = true;
 
   @override
   void dispose() {
@@ -62,66 +76,96 @@ class _LoginScreenState extends State<LoginScreen> {
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               const SizedBox(height: 16),
-              const _LogoSection(),
+              FadeInItem(index: 0, child: const _LogoSection()),
               const SizedBox(height: 24),
-              Text(
-                'EXAM PONCOL',
-                style: AppTypography.pageTitle.copyWith(fontSize: 30),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Secure Examination System',
-                style: AppTypography.subtitle,
-              ),
-              const SizedBox(height: 16),
-              _DeviceVerifiedRow(
-                deviceName: _deviceName,
-                verified: _deviceVerified,
-              ),
-              const SizedBox(height: 32),
-              AppTextField(
-                label: 'NISN',
-                hint: 'Ketik NISN disini...',
-                controller: _nisnController,
-                keyboardType: TextInputType.number,
-              ),
-              const SizedBox(height: 16),
-              AppTextField(
-                label: 'PASSWORD',
-                hint: 'Ketik Password disini...',
-                controller: _passwordController,
-                obscureText: _obscurePassword,
-                suffixIcon: IconButton(
-                  icon: Icon(
-                    _obscurePassword
-                        ? Icons.visibility_off_outlined
-                        : Icons.visibility_outlined,
-                    color: AppColors.textSecondary,
-                    size: 20,
-                  ),
-                  onPressed: () {
-                    setState(() => _obscurePassword = !_obscurePassword);
-                  },
+              FadeInItem(
+                index: 1,
+                child: Column(
+                  children: [
+                    Text(
+                      'EXAM PONCOL',
+                      style: AppTypography.pageTitle.copyWith(fontSize: 30),
+                    ),
+                    const SizedBox(height: 8),
+                    Text('Secure Examination System',
+                        style: AppTypography.subtitle),
+                  ],
                 ),
               ),
-              const SizedBox(height: 16),
-              AppTextField(
-                label: 'TOKEN UJIAN',
-                hint: 'Ketik Token disini...',
-                controller: _tokenController,
+              const SizedBox(height: 14),
+              FadeInItem(
+                index: 2,
+                child: Column(
+                  children: [
+                    // Sapaan kontekstual berdasarkan jam — sentuhan manusiawi
+                    // yang mengisi ruang tanpa membuat layar ramai.
+                    Text(
+                      GreetingHelper.greeting(),
+                      style: AppTypography.subtitle.copyWith(
+                        color: AppColors.textPrimary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    _ServerStatusRow(connected: _serverConnected),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 32),
+              FadeInItem(
+                index: 3,
+                child: Column(
+                  children: [
+                    AppTextField(
+                      label: 'NISN',
+                      hint: 'Ketik NISN disini...',
+                      controller: _nisnController,
+                      keyboardType: TextInputType.number,
+                    ),
+                    const SizedBox(height: 16),
+                    AppTextField(
+                      label: 'PASSWORD',
+                      hint: 'Ketik Password disini...',
+                      controller: _passwordController,
+                      obscureText: _obscurePassword,
+                      suffixIcon: IconButton(
+                        icon: Icon(
+                          _obscurePassword
+                              ? Icons.visibility_off_outlined
+                              : Icons.visibility_outlined,
+                          color: AppColors.textSecondary,
+                          size: 20,
+                        ),
+                        onPressed: () {
+                          setState(
+                              () => _obscurePassword = !_obscurePassword);
+                        },
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    AppTextField(
+                      label: 'TOKEN SESI',
+                      hint: 'Ketik Token Sesi disini...',
+                      controller: _tokenController,
+                    ),
+                    const SizedBox(height: 24),
+                    PrimaryButton(
+                      label: 'MASUK',
+                      icon: Icons.lock_outline,
+                      isLoading: _isLoading,
+                      onPressed: _handleLogin,
+                    ),
+                  ],
+                ),
               ),
               const SizedBox(height: 24),
-              PrimaryButton(
-                label: 'MASUK',
-                icon: Icons.lock_outline,
-                isLoading: _isLoading,
-                onPressed: _handleLogin,
-              ),
-              const SizedBox(height: 24),
-              const WarningBanner(
-                message:
-                    'Sesi ujian ini dipantau secara langsung. Setiap '
-                    'aktivitas mencurigakan akan dilaporkan kepada pengawas.',
+              FadeInItem(
+                index: 4,
+                child: const WarningBanner(
+                  message:
+                      'Sesi ujian ini dipantau secara langsung. Setiap '
+                      'aktivitas mencurigakan akan dilaporkan kepada pengawas.',
+                ),
               ),
               const SizedBox(height: 24),
               Text(
@@ -166,14 +210,11 @@ class _LogoSection extends StatelessWidget {
   }
 }
 
-class _DeviceVerifiedRow extends StatelessWidget {
-  final String deviceName;
-  final bool verified;
+/// Indikator status koneksi server — titik kecil + teks, sangat subtle.
+class _ServerStatusRow extends StatelessWidget {
+  final bool connected;
 
-  const _DeviceVerifiedRow({
-    required this.deviceName,
-    required this.verified,
-  });
+  const _ServerStatusRow({required this.connected});
 
   @override
   Widget build(BuildContext context) {
@@ -184,13 +225,13 @@ class _DeviceVerifiedRow extends StatelessWidget {
           width: 8,
           height: 8,
           decoration: BoxDecoration(
-            color: verified ? AppColors.online : AppColors.textMuted,
+            color: connected ? AppColors.online : AppColors.primary,
             shape: BoxShape.circle,
           ),
         ),
         const SizedBox(width: 8),
         Text(
-          '$deviceName \u00b7 ${verified ? 'Verified' : 'Not Verified'}',
+          connected ? 'Server terhubung' : 'Server tidak terjangkau',
           style: AppTypography.deviceVerified,
         ),
       ],
