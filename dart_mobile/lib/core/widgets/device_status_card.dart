@@ -11,7 +11,19 @@ import '../theme/app_typography.dart';
 /// - Background colorSurfaceLight, radius 12
 /// - Label (Device, Room, Network, Session) pakai labelCaps mute
 /// - Value pakai cardTitle bold dark
-/// - Footer ikon monitor + status screen sharing & proctor visibility
+/// - Footer ikon device-check + status "Perangkat Terverifikasi"
+///
+/// CATATAN PERUBAHAN TEKS FOOTER: sebelumnya footer bertuliskan "Screen
+/// sharing active · Proctor visibility: ON". Teks itu DIHAPUS karena
+/// bertentangan langsung dengan filosofi Hero Exam PRD Section 2 ("PREVENT
+/// CHEATING — bukan DETECT CHEATING... bukan melalui pengawasan invasif
+/// berbasis AI, kamera, atau analisis perilaku") dan Section 33 yang
+/// eksplisit menolak "Webcam Monitoring"/"Behavior Analysis" sebagai
+/// "Invasif, tidak selaras filosofi". App ini TIDAK punya fitur live
+/// screen-sharing/human-proctor-watching sungguhan — istilah lama itu
+/// menciptakan ekspektasi salah & terasa mengintimidasi. Footer sekarang
+/// menyatakan apa yang SUNGGUHAN dilakukan sistem: verifikasi device,
+/// bukan pengawasan real-time.
 class DeviceStatusCard extends StatelessWidget {
   final Student student;
 
@@ -72,15 +84,14 @@ class DeviceStatusCard extends StatelessWidget {
           Row(
             children: [
               const Icon(
-                Icons.monitor_outlined,
+                Icons.verified_user_outlined,
                 size: 16,
                 color: AppColors.textMuted,
               ),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  'Screen sharing ${student.screenSharingActive ? 'active' : 'inactive'} '
-                  '\u00b7 Proctor visibility: ${student.proctorVisibilityOn ? 'ON' : 'OFF'}',
+                  'Perangkat Terverifikasi',
                   style: AppTypography.cardMeta.copyWith(fontSize: 12),
                 ),
               ),
