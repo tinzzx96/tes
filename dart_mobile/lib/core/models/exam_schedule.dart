@@ -57,3 +57,16 @@ class ExamSchedule {
 
   static String _two(int value) => value.toString().padLeft(2, '0');
 }
+
+factory ExamSchedule.fromJson(Map<String, dynamic> json) {
+  return ExamSchedule(
+    id: json["id"].toString(),
+    subjectName: json["subject"] ?? "",
+    teacherName: json["teacher"] ?? "",
+    startTime: DateTime.parse(json["startTime"]),
+    endTime: DateTime.parse(json["endTime"]),
+    room: json["room"] ?? "",
+    examCode: json["examCode"] ?? "",
+    status: json["status"] ?? "draft",
+  );
+}

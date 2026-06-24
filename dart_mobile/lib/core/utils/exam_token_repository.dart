@@ -1,58 +1,89 @@
-/// Hasil validasi Token Ujian yang dimasukkan murid sebelum memulai ujian.
-class TokenValidationResult {
-  final bool isValid;
-  final String? errorMessage;
+// lib/core/utils/exam_token_repository.dart
+// ════════════════════════════════════════════════════════════════════════════
+// HERO EXAM — Token Ujian Repository
+// Endpoint: POST /api/exam-tokens/validate
+// Response sukses: { success, data: { valid: true, examAttemptId: 5521 } }
+// Response error:  { success: false, error: { code: 'TOKEN_INVALID', message } }
+//
+// PENTING: examAttemptId yang dikembalikan WAJIB disimpan ke secure storage.
+// Semua request berikutnya (auto-save, heartbeat, report-violation) pakai ini.
+// ════════════════════════════════════════════════════════════════════════════
 
-  const TokenValidationResult._(this.isValid, this.errorMessage);
+import 'dart:convert';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:http/http.dart' as http;
+import '../config/api_config.dart';
+import 'auth_repository.dart';
 
-  factory TokenValidationResult.success() =>
-      const TokenValidationResult._(true, null);
-
-  factory TokenValidationResult.failure(String message) =>
-      TokenValidationResult._(false, message);
-}
-
-/// Token Ujian — kode unik yang di-generate per sesi ujian (BUKAN "Token
-/// Sesi" di Login Screen, yang berfungsi untuk validasi identitas/
-/// perangkat awal — lihat LoginScreen). Token Ujian ini diminta ulang
-/// setiap kali murid menekan "MULAI UJIAN" di Home Screen.
-///
-/// TODO(integrasi-backend): generate & validasi Token Ujian SEPENUHNYA
-/// ditangani backend Node.js via schema.prisma (model exam_tokens, sudah
-/// ada di skema database — PRD Bagian 23). TIDAK PERLU menambah kolom baru
-/// di database untuk fitur ini. Endpoint yang dipanggil nanti:
-///
-///   POST /api/v1/exam-tokens/validate
-///   Body: { examId, token }
-///   Response: { valid: boolean, message?: string }
-///
-/// Sampai backend siap, class ini mengembalikan data DUMMY dengan simulasi
-/// latency jaringan, supaya alur popup -> validasi -> ExamPlayerScreen bisa
-/// dikembangkan & diuji lebih dulu.
 class ExamTokenRepository {
   ExamTokenRepository._();
 
-  /// Token dummy yang dianggap "benar" untuk keperluan testing — di
-  /// production, validasi ini sepenuhnya pindah ke server, Flutter tidak
-  /// pernah menyimpan token yang valid di sisi client.
-  static const String _dummyValidToken = 'MATH99';
+  static const _storage = FlutterSecureStorage();
 
-  /// Memvalidasi Token Ujian yang dimasukkan murid terhadap [examId] yang
-  /// sedang dibuka.
+  /// Validasi Token Ujian sebelum masuk ExamPlayerScreen.
+  /// Simpan examAttemptId ke secure storage setelah berhasil.
   static Future<TokenValidationResult> validate({
-    required String examId,
+    required int examId,
     required String enteredToken,
   }) async {
-    await Future.delayed(const Duration(milliseconds: 500));
+    final accessToken = await AuthRepository.getToken();
 
-    final normalized = enteredToken.trim().toUpperCase();
-    if (normalized.isEmpty) {
-      return TokenValidationResult.failure('Token tidak boleh kosong.');
+    final res = await http.post(
+      Uri.parse('${ApiConfig.baseUrl}/exam-tokens/validate'),
+      headers: ApiConfig.headers(accessToken),
+      body: jsonEncode({
+        'examId': examId,
+        'token': enteredToken.toUpperCase().trim(),
+      }),
+    );
+
+    final data = jsonDecode(res.body) as Map<String, dynamic>;
+
+    if (res.statusCode == 200 && data['success'] == true) {
+      final attemptId = data['data']['examAttemptId'] as int;
+
+      // Simpan examAttemptId — WAJIB untuk semua request berikutnya
+      await _storage.write(
+        key: 'exam_attempt_id',
+        value: attemptId.toString(),
+      );
+
+      return TokenValidationResult.success(examAttemptId: attemptId);
     }
-    if (normalized != _dummyValidToken) {
-      return TokenValidationResult.failure(
-          'Token Ujian salah. Hubungi pengawas untuk konfirmasi token.');
-    }
-    return TokenValidationResult.success();
+
+    // Error: TOKEN_INVALID / EXAM_NOT_ACTIVE / EXAM_ALREADY_SUBMITTED
+    final message = data['error']?['message'] ??
+        'Token Ujian salah. Hubungi pengawas.';
+    return TokenValidationResult.failure(message);
   }
+
+  /// Ambil examAttemptId yang tersimpan.
+  static Future<int?> getStoredAttemptId() async {
+    final raw = await _storage.read(key: 'exam_attempt_id');
+    return raw != null ? int.tryParse(raw) : null;
+  }
+
+  /// Hapus examAttemptId setelah ujian selesai / submit.
+  static Future<void> clearAttemptId() async {
+    await _storage.delete(key: 'exam_attempt_id');
+  }
+}
+
+// ── Model ─────────────────────────────────────────────────────────────────────
+class TokenValidationResult {
+  final bool isValid;
+  final int? examAttemptId;
+  final String? errorMessage;
+
+  const TokenValidationResult._({
+    required this.isValid,
+    this.examAttemptId,
+    this.errorMessage,
+  });
+
+  factory TokenValidationResult.success({required int examAttemptId}) =>
+      TokenValidationResult._(isValid: true, examAttemptId: examAttemptId);
+
+  factory TokenValidationResult.failure(String message) =>
+      TokenValidationResult._(isValid: false, errorMessage: message);
 }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
 import '../../core/utils/greeting_helper.dart';
+import '../../core/utils/auth_repository.dart';
 import '../../core/widgets/app_text_field.dart';
 import '../../core/widgets/fade_in_item.dart';
 import '../../core/widgets/primary_button.dart';
@@ -10,20 +11,13 @@ import '../shell/app_shell.dart';
 
 /// Login Screen — sesuai mockup Frame 1/9.
 ///
-/// Komponen: Logo + judul, sapaan kontekstual + status server, status
-/// verifikasi device, 3 input (NISN, PASSWORD, TOKEN SESI), tombol MASUK,
-/// warning banner, dan caption versi. Seluruh blok masuk dengan fade-in
-/// halus saat screen pertama dibuka.
-///
 /// CATATAN PENTING — "Token Sesi" vs "Token Ujian" (JANGAN TERTUKAR):
 /// - Token Sesi (field di halaman ini): dimasukkan SEKALI saat login,
 ///   untuk validasi identitas/perangkat awal sebelum murid masuk ke
 ///   AppShell (Home/Schedule/History).
 /// - Token Ujian (popup terpisah, lihat ExamTokenDialog): kode unik yang
 ///   diminta ULANG setiap kali murid menekan "MULAI UJIAN" di Home Screen,
-///   khusus untuk sesi pengerjaan soal yang akan dibuka. Di-generate &
-///   divalidasi backend via schema.prisma (model exam_tokens), TANPA
-///   kolom database tambahan.
+///   khusus untuk sesi pengerjaan soal yang akan dibuka.
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
@@ -38,11 +32,6 @@ class _LoginScreenState extends State<LoginScreen> {
 
   bool _obscurePassword = true;
   bool _isLoading = false;
-
-  // TODO(integrasi-backend): status koneksi server asli harus dicek lewat
-  // ping ringan ke endpoint health-check backend. Untuk sekarang true (dummy)
-  // agar UI bisa ditampilkan; relevan dengan PRD (timer & data server-side),
-  // memberi murid kepastian bahwa sistem ujian hidup sebelum login.
   final bool _serverConnected = true;
 
   @override
@@ -54,15 +43,35 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _handleLogin() async {
-    // TODO(integrasi-backend): panggil Authentication API di sini
-    // (validasi NISN, password, dan token ruangan terhadap jadwal_ujians).
     setState(() => _isLoading = true);
-    await Future.delayed(const Duration(milliseconds: 600));
-    if (!mounted) return;
-    setState(() => _isLoading = false);
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => const AppShell()),
-    );
+
+    try {
+      await AuthRepository.login(
+        nisn: _nisnController.text.trim(),
+        password: _passwordController.text,
+        sessionToken: _tokenController.text.trim().toUpperCase(),
+      );
+
+      if (!mounted) return;
+
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (_) => const AppShell()),
+      );
+    } on Exception catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content:
+            Text('Tidak bisa terhubung ke server. Periksa koneksi.')),
+      );
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
   }
 
   @override
@@ -97,8 +106,6 @@ class _LoginScreenState extends State<LoginScreen> {
                 index: 2,
                 child: Column(
                   children: [
-                    // Sapaan kontekstual berdasarkan jam — sentuhan manusiawi
-                    // yang mengisi ruang tanpa membuat layar ramai.
                     Text(
                       GreetingHelper.greeting(),
                       style: AppTypography.subtitle.copyWith(
@@ -138,7 +145,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                         onPressed: () {
                           setState(
-                              () => _obscurePassword = !_obscurePassword);
+                                  () => _obscurePassword = !_obscurePassword);
                         },
                       ),
                     ),
@@ -163,7 +170,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 index: 4,
                 child: const WarningBanner(
                   message:
-                      'Sesi ujian ini dipantau secara langsung. Setiap '
+                  'Sesi ujian ini dipantau secara langsung. Setiap '
                       'aktivitas mencurigakan akan dilaporkan kepada pengawas.',
                 ),
               ),
@@ -210,7 +217,6 @@ class _LogoSection extends StatelessWidget {
   }
 }
 
-/// Indikator status koneksi server — titik kecil + teks, sangat subtle.
 class _ServerStatusRow extends StatelessWidget {
   final bool connected;
 

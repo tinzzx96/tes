@@ -3,7 +3,6 @@ import '../../core/models/exam_schedule.dart';
 import '../../core/models/student.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
-import '../../core/utils/dummy_data_repository.dart';
 import '../../core/utils/exam_progress_store.dart';
 import '../../core/widgets/avatar_badge.dart';
 import '../../core/widgets/device_status_card.dart';
@@ -12,33 +11,14 @@ import '../../core/widgets/exam_token_dialog.dart';
 import '../../core/widgets/fade_in_item.dart';
 import '../../core/widgets/header_status_actions.dart';
 import '../../core/utils/greeting_helper.dart';
+import '../../core/utils/exam_schedule_repository.dart';
+import '../../core/utils/auth_repository.dart';
 import '../exam/validation_screen.dart';
 
 /// Home Screen — sesuai mockup Frame 2.
 ///
-/// CATATAN LAYOUT (PENTING, sesuai permintaan eksplisit):
-/// Device Status Card harus SELALU terlihat dan TIDAK PERNAH ikut tergulung
-/// oleh scroll — ia bersifat fixed/pinned. Hanya daftar "Today's Exam" (satu
-/// atau banyak ExamCard, bisa 3-4 mapel dalam sehari) yang boleh di-scroll,
-/// dan scroll itu terbatas hanya pada areanya sendiri di bawah Device Status
-/// Card, sehingga tidak pernah menutupi/menimpa/menggeser Device Status Card.
-///
-/// Status "selesai" per mapel (opacity turun + badge centang hijau) dibaca
-/// dari `ExamProgressStore` (shared_preferences sementara, lihat TODO di
-/// file itu untuk migrasi ke backend asli).
-///
-/// CATATAN BUG FIX (centang hijau tidak hilang setelah reset di Schedule):
-/// HomeScreen & ScheduleScreen adalah instance State TERPISAH karena
-/// AppShell memakai IndexedStack (supaya state scroll dsb tetap terjaga
-/// saat pindah tab). Akibatnya, menekan tombol Refresh di ScheduleScreen
-/// TIDAK otomatis memberi tahu HomeScreen untuk reload `_completedIds`
-/// miliknya sendiri — keduanya independen.
-///
-/// Fix: HomeScreen sekarang expose method `reloadCompletedIds()` publik
-/// lewat GlobalKey (lihat AppShell), dipanggil oleh AppShell setiap kali
-/// ScheduleScreen selesai refresh. HomeScreen JUGA punya tombol
-/// Refresh/HeaderStatusActions sendiri untuk kasus reset langsung dari
-/// Home tanpa perlu pindah tab dulu.
+/// Jadwal hari ini diambil dari server via ExamScheduleRepository.fetchToday().
+/// Device Status Card fixed (tidak scroll). Hanya ExamCard list yang scroll.
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -47,20 +27,53 @@ class HomeScreen extends StatefulWidget {
 }
 
 class HomeScreenState extends State<HomeScreen> {
-  final Student _student = DummyDataRepository.getCurrentStudent();
-  final List<ExamSchedule> _todaySchedules =
-  DummyDataRepository.getTodaySchedules();
+  // Data profil siswa — diambil dari server via AuthRepository.me()
+  // atau bisa dari FlutterSecureStorage jika sudah disimpan saat login.
+  // Sementara pakai placeholder sampai disambungkan ke profil endpoint.
+  Student? _student;
+
+  // Jadwal dari server
+  List<ExamSchedule> _todaySchedules = [];
+  bool _isLoading = false;
+  String? _errorMessage;
+
   Set<String> _completedIds = <String>{};
 
   @override
   void initState() {
     super.initState();
-    reloadCompletedIds();
+    _loadData();
   }
 
-  /// Publik (dipanggil dari luar lewat GlobalKey<HomeScreenState> di
-  /// AppShell) supaya HomeScreen bisa di-refresh dari tab lain, mis.
-  /// setelah tombol Refresh di ScheduleScreen ditekan.
+  Future<void> _loadData() async {
+    if (!mounted) return;
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      // Ambil jadwal dari server
+      final schedules = await ExamScheduleRepository.fetchToday();
+      // Ambil status ujian yang sudah selesai
+      final ids = await ExamProgressStore.getCompletedExamIds();
+
+      if (!mounted) return;
+      setState(() {
+        _todaySchedules = schedules;
+        _completedIds = ids;
+        _isLoading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isLoading = false;
+        _errorMessage = e.toString().replaceFirst('Exception: ', '');
+      });
+    }
+  }
+
+  /// Publik — dipanggil dari luar lewat GlobalKey<HomeScreenState> di AppShell.
   Future<void> reloadCompletedIds() async {
     final ids = await ExamProgressStore.getCompletedExamIds();
     if (!mounted) return;
@@ -68,9 +81,6 @@ class HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _openExam(ExamSchedule schedule) async {
-    // Langkah 1: minta Token Ujian (kode unik per sesi, di-generate
-    // backend via schema.prisma — lihat ExamTokenRepository). Murid bisa
-    // membatalkan di sini tanpa konsekuensi apa pun.
     final tokenValid = await ExamTokenDialog.show(
       context,
       examId: schedule.id,
@@ -79,10 +89,6 @@ class HomeScreenState extends State<HomeScreen> {
     if (tokenValid != true) return;
     if (!mounted) return;
 
-    // Langkah 2: masuk ke ValidationScreen (layar putih + loading) untuk
-    // proses screen pinning awal, BUKAN langsung ke ExamPlayerScreen.
-    // Lihat Hero Exam PRD Addendum Bagian 43 untuk alasan teknis lengkap
-    // (isolasi observer, tirai penutup soal, tempat steril cek izin).
     final result = await Navigator.of(context).push<bool>(
       MaterialPageRoute(
         builder: (_) => ValidationScreen(
@@ -92,9 +98,6 @@ class HomeScreenState extends State<HomeScreen> {
         ),
       ),
     );
-    // Refresh status completed begitu kembali dari Exam Player, supaya
-    // mapel yang baru disubmit langsung tampil redup + centang hijau, dan
-    // mapel berikutnya (misal Prod A) tetap bisa dilanjutkan seperti biasa.
     if (result == true) {
       await reloadCompletedIds();
     }
@@ -102,12 +105,21 @@ class HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Gunakan student dari state jika ada, fallback ke placeholder
+    final student = _student ??
+        Student(
+          id: '',
+          name: 'Siswa',
+          nisn: '-',
+          classLabel: '-',
+        );
+
     return Scaffold(
       backgroundColor: AppColors.background,
       body: Column(
         children: [
           _HomeHeader(onRefreshComplete: reloadCompletedIds),
-          _ProfileSection(student: _student),
+          _ProfileSection(student: student),
           Expanded(
             child: Container(
               color: const Color(0xFFE8E8E8),
@@ -116,7 +128,7 @@ class HomeScreenState extends State<HomeScreen> {
                   // ===== FIXED: Device Status Card, tidak ikut scroll =====
                   Padding(
                     padding: const EdgeInsets.fromLTRB(24, 16, 24, 16),
-                    child: DeviceStatusCard(student: _student),
+                    child: DeviceStatusCard(student: student),
                   ),
                   // ===== Greeting + tanggal + ringkasan ujian hari ini =====
                   _TodaySummaryBar(
@@ -125,29 +137,9 @@ class HomeScreenState extends State<HomeScreen> {
                         .where((s) => _completedIds.contains(s.id))
                         .length,
                   ),
-                  // ===== SCROLLABLE: daftar Exam Card, area sendiri =====
+                  // ===== SCROLLABLE: daftar Exam Card =====
                   Expanded(
-                    child: _todaySchedules.isEmpty
-                        ? const _EmptyTodayState()
-                        : ListView.separated(
-                      padding: const EdgeInsets.fromLTRB(24, 4, 24, 16),
-                      itemCount: _todaySchedules.length,
-                      separatorBuilder: (context, index) =>
-                      const SizedBox(height: 16),
-                      itemBuilder: (context, index) {
-                        final schedule = _todaySchedules[index];
-                        final isCompleted =
-                        _completedIds.contains(schedule.id);
-                        return FadeInItem(
-                          index: index,
-                          child: ExamCard(
-                            schedule: schedule,
-                            isCompleted: isCompleted,
-                            onStartExam: () => _openExam(schedule),
-                          ),
-                        );
-                      },
-                    ),
+                    child: _buildScheduleList(),
                   ),
                 ],
               ),
@@ -157,13 +149,73 @@ class HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
+
+  Widget _buildScheduleList() {
+    if (_isLoading) {
+      return const Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(height: 12),
+            Text('Memuat jadwal ujian...'),
+          ],
+        ),
+      );
+    }
+
+    if (_errorMessage != null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.error_outline, color: AppColors.primary, size: 40),
+              const SizedBox(height: 12),
+              Text(
+                _errorMessage!,
+                textAlign: TextAlign.center,
+                style: AppTypography.cardMeta
+                    .copyWith(color: AppColors.textSecondary),
+              ),
+              const SizedBox(height: 16),
+              ElevatedButton.icon(
+                onPressed: _loadData,
+                icon: const Icon(Icons.refresh),
+                label: const Text('Coba Lagi'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (_todaySchedules.isEmpty) {
+      return const _EmptyTodayState();
+    }
+
+    return ListView.separated(
+      padding: const EdgeInsets.fromLTRB(24, 4, 24, 16),
+      itemCount: _todaySchedules.length,
+      separatorBuilder: (context, index) => const SizedBox(height: 16),
+      itemBuilder: (context, index) {
+        final schedule = _todaySchedules[index];
+        final isCompleted = _completedIds.contains(schedule.id);
+        return FadeInItem(
+          index: index,
+          child: ExamCard(
+            schedule: schedule,
+            isCompleted: isCompleted,
+            onStartExam: () => _openExam(schedule),
+          ),
+        );
+      },
+    );
+  }
 }
 
-/// Header Home Screen — sebelumnya AppHeader generik, sekarang punya
-/// versi khusus Home yang menyertakan HeaderStatusActions (jam + WiFi +
-/// Data) dan RefreshScheduleButton di bawah garis emas, identik secara
-/// fungsi dengan _ScheduleHeader di ScheduleScreen supaya konsisten di
-/// kedua tab.
+/// Header Home Screen.
 class _HomeHeader extends StatelessWidget {
   final VoidCallback? onRefreshComplete;
 
@@ -254,9 +306,6 @@ class _ProfileSection extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          // Avatar dengan ring putih tipis — accent halus yang membingkai
-          // inisial agar tidak terlihat "telanjang". Mengikuti bentuk kotak
-          // AvatarBadge (radius 8), bukan lingkaran.
           Container(
             padding: const EdgeInsets.all(2.5),
             decoration: BoxDecoration(
@@ -279,8 +328,6 @@ class _ProfileSection extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: 8),
-                // NISN & kelas dipecah jadi dua chip kecil agar lebih
-                // terstruktur & kebaca, bukan teks gabung dengan titik.
                 Wrap(
                   spacing: 8,
                   runSpacing: 6,
@@ -299,8 +346,6 @@ class _ProfileSection extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 12),
-          // Status badge kanan — titik hijau + "Siap" mengisi ruang kosong
-          // dan senada tema device-verified yang sudah ada di app.
           const _ReadyBadge(),
         ],
       ),
@@ -308,7 +353,6 @@ class _ProfileSection extends StatelessWidget {
   }
 }
 
-/// Chip kecil berisi ikon + teks (dipakai untuk NISN & kelas).
 class _InfoChip extends StatelessWidget {
   final IconData icon;
   final String label;
@@ -339,10 +383,6 @@ class _InfoChip extends StatelessWidget {
   }
 }
 
-/// Indikator status siap — ikon polos kecil (BUKAN pill/badge dengan teks),
-/// konsisten dengan gaya ikon kecil yang sudah dipakai di subtitle header
-/// Schedule (Icons.calendar_today_rounded) dan History
-/// (Icons.verified_outlined).
 class _ReadyBadge extends StatelessWidget {
   const _ReadyBadge();
 
@@ -364,9 +404,6 @@ class _TodaySummaryBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Ringkasan satu baris: sapaan + tanggal di kiri, status ujian di kanan.
-    // Sengaja dibuat tipis & tidak ramai (clean), sekadar memberi konteks
-    // cepat dan mengisi ruang yang sebelumnya kosong.
     final String statusText = total == 0
         ? 'Tidak ada ujian'
         : (completed >= total
