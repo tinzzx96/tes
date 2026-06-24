@@ -1,0 +1,500 @@
+import 'package:flutter/material.dart';
+import '../../core/models/exam_schedule.dart';
+import '../../core/models/student.dart';
+import '../../core/theme/app_colors.dart';
+import '../../core/theme/app_typography.dart';
+import '../../core/utils/exam_progress_store.dart';
+import '../../core/widgets/avatar_badge.dart';
+import '../../core/widgets/device_status_card.dart';
+import '../../core/widgets/exam_card.dart';
+import '../../core/widgets/exam_token_dialog.dart';
+import '../../core/widgets/fade_in_item.dart';
+import '../../core/widgets/header_status_actions.dart';
+import '../../core/utils/greeting_helper.dart';
+import '../../core/utils/exam_schedule_repository.dart';
+import '../../core/utils/auth_repository.dart';
+import '../exam/validation_screen.dart';
+
+/// Home Screen — sesuai mockup Frame 2.
+///
+/// Jadwal hari ini diambil dari server via ExamScheduleRepository.fetchToday().
+/// Device Status Card fixed (tidak scroll). Hanya ExamCard list yang scroll.
+class HomeScreen extends StatefulWidget {
+  const HomeScreen({super.key});
+
+  @override
+  State<HomeScreen> createState() => HomeScreenState();
+}
+
+class HomeScreenState extends State<HomeScreen> {
+  // Data profil siswa — diambil dari server via AuthRepository.me()
+  // atau bisa dari FlutterSecureStorage jika sudah disimpan saat login.
+  // Sementara pakai placeholder sampai disambungkan ke profil endpoint.
+  Student? _student;
+
+  // Jadwal dari server
+  List<ExamSchedule> _todaySchedules = [];
+  bool _isLoading = false;
+  String? _errorMessage;
+
+  Set<String> _completedIds = <String>{};
+
+  @override
+  void initState() {
+    super.initState();
+    _loadData();
+  }
+
+  Future<void> _loadData() async {
+    if (!mounted) return;
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      // Ambil jadwal dari server
+      final schedules = await ExamScheduleRepository.fetchToday();
+      // Ambil status ujian yang sudah selesai
+      final ids = await ExamProgressStore.getCompletedExamIds();
+
+      if (!mounted) return;
+      setState(() {
+        _todaySchedules = schedules;
+        _completedIds = ids;
+        _isLoading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isLoading = false;
+        _errorMessage = e.toString().replaceFirst('Exception: ', '');
+      });
+    }
+  }
+
+  /// Publik — dipanggil dari luar lewat GlobalKey<HomeScreenState> di AppShell.
+  Future<void> reloadCompletedIds() async {
+    final ids = await ExamProgressStore.getCompletedExamIds();
+    if (!mounted) return;
+    setState(() => _completedIds = ids);
+  }
+
+  Future<void> _openExam(ExamSchedule schedule) async {
+    final tokenValid = await ExamTokenDialog.show(
+      context,
+      examId: schedule.id,
+      subjectName: schedule.subjectName,
+    );
+    if (tokenValid != true) return;
+    if (!mounted) return;
+
+    final result = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => ValidationScreen(
+          examId: schedule.id,
+          subjectName: schedule.subjectName,
+          teacherName: schedule.teacherName,
+        ),
+      ),
+    );
+    if (result == true) {
+      await reloadCompletedIds();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Gunakan student dari state jika ada, fallback ke placeholder
+    final student = _student ??
+        Student(
+          id: '',
+          name: 'Siswa',
+          nisn: '-',
+          classLabel: '-',
+        );
+
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      body: Column(
+        children: [
+          _HomeHeader(onRefreshComplete: reloadCompletedIds),
+          _ProfileSection(student: student),
+          Expanded(
+            child: Container(
+              color: const Color(0xFFE8E8E8),
+              child: Column(
+                children: [
+                  // ===== FIXED: Device Status Card, tidak ikut scroll =====
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(24, 16, 24, 16),
+                    child: DeviceStatusCard(student: student),
+                  ),
+                  // ===== Greeting + tanggal + ringkasan ujian hari ini =====
+                  _TodaySummaryBar(
+                    total: _todaySchedules.length,
+                    completed: _todaySchedules
+                        .where((s) => _completedIds.contains(s.id))
+                        .length,
+                  ),
+                  // ===== SCROLLABLE: daftar Exam Card =====
+                  Expanded(
+                    child: _buildScheduleList(),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildScheduleList() {
+    if (_isLoading) {
+      return const Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(height: 12),
+            Text('Memuat jadwal ujian...'),
+          ],
+        ),
+      );
+    }
+
+    if (_errorMessage != null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.error_outline, color: AppColors.primary, size: 40),
+              const SizedBox(height: 12),
+              Text(
+                _errorMessage!,
+                textAlign: TextAlign.center,
+                style: AppTypography.cardMeta
+                    .copyWith(color: AppColors.textSecondary),
+              ),
+              const SizedBox(height: 16),
+              ElevatedButton.icon(
+                onPressed: _loadData,
+                icon: const Icon(Icons.refresh),
+                label: const Text('Coba Lagi'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (_todaySchedules.isEmpty) {
+      return const _EmptyTodayState();
+    }
+
+    return ListView.separated(
+      padding: const EdgeInsets.fromLTRB(24, 4, 24, 16),
+      itemCount: _todaySchedules.length,
+      separatorBuilder: (context, index) => const SizedBox(height: 16),
+      itemBuilder: (context, index) {
+        final schedule = _todaySchedules[index];
+        final isCompleted = _completedIds.contains(schedule.id);
+        return FadeInItem(
+          index: index,
+          child: ExamCard(
+            schedule: schedule,
+            isCompleted: isCompleted,
+            onStartExam: () => _openExam(schedule),
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// Header Home Screen.
+class _HomeHeader extends StatelessWidget {
+  final VoidCallback? onRefreshComplete;
+
+  const _HomeHeader({this.onRefreshComplete});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: AppColors.background,
+      child: SafeArea(
+        bottom: false,
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
+              child: Row(
+                children: [
+                  const _AppLogo(size: 36),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text('EXAM-PONCOL', style: AppTypography.appTitle),
+                  ),
+                  const HeaderStatusActions(),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            Container(height: 1, color: AppColors.accentGold),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 8, 24, 0),
+              child: Align(
+                alignment: Alignment.centerRight,
+                child: RefreshScheduleButton(
+                  onRefreshComplete: onRefreshComplete,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AppLogo extends StatelessWidget {
+  final double size;
+
+  const _AppLogo({required this.size});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: size,
+      height: size,
+      child: Image.asset(
+        'assets/images/logo_poncol.png',
+        fit: BoxFit.contain,
+        errorBuilder: (context, error, stackTrace) {
+          return Container(
+            decoration: BoxDecoration(
+              color: AppColors.primary,
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(color: AppColors.accentGold, width: 1.5),
+            ),
+            alignment: Alignment.center,
+            child: Text(
+              'SMK',
+              style: AppTypography.badgeToday.copyWith(fontSize: size * 0.28),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _ProfileSection extends StatelessWidget {
+  final Student student;
+
+  const _ProfileSection({required this.student});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      color: AppColors.background,
+      padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(2.5),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(11),
+              border: Border.all(
+                color: Colors.white.withOpacity(0.85),
+                width: 1.5,
+              ),
+            ),
+            child: AvatarBadge(initials: student.initials),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  student.name.toUpperCase(),
+                  style: AppTypography.studentName,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 6,
+                  children: [
+                    _InfoChip(
+                      icon: Icons.badge_outlined,
+                      label: student.nisn,
+                    ),
+                    _InfoChip(
+                      icon: Icons.school_outlined,
+                      label: student.classLabel,
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          const _ReadyBadge(),
+        ],
+      ),
+    );
+  }
+}
+
+class _InfoChip extends StatelessWidget {
+  final IconData icon;
+  final String label;
+
+  const _InfoChip({required this.icon, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.white.withOpacity(0.08)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 13, color: AppColors.textSecondary),
+          const SizedBox(width: 5),
+          Text(
+            label,
+            style: AppTypography.studentMeta.copyWith(fontSize: 12),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ReadyBadge extends StatelessWidget {
+  const _ReadyBadge();
+
+  @override
+  Widget build(BuildContext context) {
+    return Icon(
+      Icons.verified_rounded,
+      size: 20,
+      color: AppColors.online,
+    );
+  }
+}
+
+class _TodaySummaryBar extends StatelessWidget {
+  final int total;
+  final int completed;
+
+  const _TodaySummaryBar({required this.total, required this.completed});
+
+  @override
+  Widget build(BuildContext context) {
+    final String statusText = total == 0
+        ? 'Tidak ada ujian'
+        : (completed >= total
+        ? 'Semua ujian selesai'
+        : '$total ujian \u00b7 $completed selesai');
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 0, 24, 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  GreetingHelper.greeting(),
+                  style: AppTypography.cardTitle.copyWith(
+                    color: AppColors.textDark,
+                    fontSize: 15,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  GreetingHelper.fullDate(),
+                  style: AppTypography.cardMeta.copyWith(
+                    color: AppColors.textMuted,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  completed >= total && total > 0
+                      ? Icons.check_circle_outline
+                      : Icons.assignment_outlined,
+                  size: 14,
+                  color: completed >= total && total > 0
+                      ? AppColors.submitGreen
+                      : AppColors.textSecondary,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  statusText,
+                  style: AppTypography.cardMeta.copyWith(
+                    color: AppColors.textSecondary,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _EmptyTodayState extends StatelessWidget {
+  const _EmptyTodayState();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 32),
+      alignment: Alignment.center,
+      child: Column(
+        children: [
+          const Icon(
+            Icons.event_available_outlined,
+            size: 40,
+            color: AppColors.textMuted,
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'Tidak ada ujian hari ini',
+            style: AppTypography.cardMeta.copyWith(color: AppColors.textMuted),
+          ),
+        ],
+      ),
+    );
+  }
+}

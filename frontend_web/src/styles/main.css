@@ -1,0 +1,140 @@
+@import 'tailwindcss/base';
+@import 'tailwindcss/components';
+@import 'tailwindcss/utilities';
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: #2A2A2A;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #666666;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #888888;
+}
+
+/* Base styles */
+html, body {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    font-family: 'Inter', sans-serif;
+}
+
+/* Focus states for accessibility */
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+    outline: 2px solid #CC0000;
+    outline-offset: 2px;
+}
+
+/* Utility classes */
+.text-warning {
+    color: #C9A84C;
+}
+
+.hidden {
+    display: none !important;
+}
+
+/* Sidebar responsive visibility — kept separate from .hidden (which uses !important
+   and would otherwise override Tailwind's md: breakpoint utilities). */
+.sidebar-desktop {
+    display: none;
+}
+.mobile-topbar {
+    display: block;
+}
+@media (min-width: 768px) {
+    .sidebar-desktop {
+        display: flex;
+    }
+    .mobile-topbar {
+        display: none;
+    }
+}
+
+.truncate {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Animations */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes slideInUp {
+    from {
+        transform: translateY(10px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+.fade-in {
+    animation: fadeIn 0.3s ease-in-out;
+}
+
+.slide-in-up {
+    animation: slideInUp 0.3s ease-in-out;
+}
+
+/* Fade-up entrance animation used across Home/Schedule/History cards. */
+@keyframes fadeUp {
+    from {
+        opacity: 0;
+        transform: translateY(8px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.fade-up {
+    animation: fadeUp 380ms ease-out both;
+}
+
+/* Stagger helper: apply alongside .fade-up, capped at 6 items (item 7+
+   shares the same delay so long lists don't feel slow). */
+.fade-up-stagger-1 { animation-delay: 0ms; }
+.fade-up-stagger-2 { animation-delay: 60ms; }
+.fade-up-stagger-3 { animation-delay: 120ms; }
+.fade-up-stagger-4 { animation-delay: 180ms; }
+.fade-up-stagger-5 { animation-delay: 240ms; }
+.fade-up-stagger-6 { animation-delay: 300ms; }
+
+/* Content transition (e.g. Exam Player question swap) — fade only, no slide. */
+@keyframes fadeContent {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+.fade-content {
+    animation: fadeContent 220ms ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .fade-up, .fade-content, .fade-in, .slide-in-up {
+        animation: none !important;
+    }
+}

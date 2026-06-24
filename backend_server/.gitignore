@@ -1,0 +1,9 @@
+node_modules/
+.env
+uploads/questions/*.jpg
+uploads/questions/*.jpeg
+uploads/questions/*.png
+uploads/questions/*.gif
+uploads/questions/*.webp
+logs/*.log
+prisma/migrations/

@@ -1,0 +1,231 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Enums ───────────────────────────────────────────────────────────────────
+
+enum Role {
+  student
+  teacher
+  admin
+  proctor
+}
+
+enum ExamStatus {
+  draft
+  active
+  completed
+}
+
+enum AttemptStatus {
+  waiting
+  started
+  submitted
+}
+
+enum QuestionType {
+  multiple_choice
+  essay
+}
+
+// ─── Models ──────────────────────────────────────────────────────────────────
+
+model User {
+  id        Int      @id @default(autoincrement())
+  name      String   @db.VarChar(255)
+  nisn      String   @unique @db.VarChar(20)
+  password  String   @db.VarChar(255)
+  class     String?  @db.VarChar(20)
+  device    String?  @db.VarChar(100)
+  room      String?  @db.VarChar(20)
+  role      Role     @default(student)
+  verified  Boolean  @default(false)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  taughtExams      Exam[]         @relation("TeacherExams")
+  questionBanks    QuestionBank[] @relation("BankCreator")
+  examAttempts     ExamAttempt[]
+  answers          Answer[]
+
+  @@map("users")
+}
+
+model QuestionBank {
+  id        Int      @id @default(autoincrement())
+  name      String   @db.VarChar(255)
+  subject   String   @db.VarChar(100)
+  createdBy Int      @map("created_by")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  creator   User       @relation("BankCreator", fields: [createdBy], references: [id])
+  questions Question[]
+  exams     Exam[]
+
+  @@map("question_banks")
+}
+
+model Exam {
+  id              Int        @id @default(autoincrement())
+  title           String     @db.VarChar(255)
+  subject         String     @db.VarChar(100)
+  teacherId       Int        @map("teacher_id")
+  // Wajib: FK ke question_banks agar server tahu mau narik soal dari bank mana
+  questionBankId  Int?       @map("question_bank_id")
+  durationMinutes Int        @default(90) @map("duration_minutes")
+  startTime       DateTime   @map("start_time")
+  endTime         DateTime   @map("end_time")
+  room            String     @db.VarChar(50)
+  examCode        String     @unique @db.VarChar(20) @map("exam_code")
+  token           String     @unique @db.VarChar(10)
+  status          ExamStatus @default(draft)
+  createdAt       DateTime   @default(now()) @map("created_at")
+  updatedAt       DateTime   @updatedAt @map("updated_at")
+
+  teacher      User          @relation("TeacherExams", fields: [teacherId], references: [id])
+  questionBank QuestionBank? @relation(fields: [questionBankId], references: [id])
+  attempts     ExamAttempt[]
+  answers      Answer[]
+  examTokens   ExamToken[]
+  classes      ExamClass[]
+
+  @@map("exams")
+}
+
+// Relasi Ujian dengan Kelas (Pemetaan Jadwal ke Jurusan/Rombel)
+model ExamClass {
+  id        Int      @id @default(autoincrement())
+  examId    Int      @map("exam_id")
+  className String   @db.VarChar(50) @map("class_name")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  exam Exam @relation(fields: [examId], references: [id], onDelete: Cascade)
+
+  @@unique([examId, className])
+  @@map("exam_classes")
+}
+
+model Question {
+  id             Int          @id @default(autoincrement())
+  questionBankId Int          @map("question_bank_id")
+  body           String       @db.Text
+  // Hanya simpan nama file / path. DILARANG menyimpan base64 di sini.
+  // Contoh valid: "soal_mtk_1.jpg", bukan data:image/...
+  questionImage  String?      @db.VarChar(255) @map("question_image")
+  type           QuestionType @default(multiple_choice)
+  orderNum       Int          @default(1) @map("order_num")
+  points         Int          @default(1)
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
+
+  questionBank QuestionBank @relation(fields: [questionBankId], references: [id], onDelete: Cascade)
+  options      Option[]
+  answers      Answer[]
+
+  @@map("questions")
+}
+
+model Option {
+  id         Int      @id @default(autoincrement())
+  questionId Int      @map("question_id")
+  body       String   @db.Text
+  isCorrect  Boolean  @default(false) @map("is_correct")
+  orderNum   Int      @default(1) @map("order_num")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  answers  Answer[]
+
+  @@map("options")
+}
+
+// Tabel utama untuk tracking sesi ujian per siswa.
+// Menggabungkan fungsi student_exams + results + fitur keamanan baru.
+model ExamAttempt {
+  id          Int           @id @default(autoincrement())
+  userId      Int           @map("user_id")
+  examId      Int           @map("exam_id")
+  status      AttemptStatus @default(waiting)
+  startedAt   DateTime?     @map("started_at")
+  finishedAt  DateTime?     @map("finished_at")
+  score       Float?
+  deviceId    String?       @db.VarChar(100) @map("device_id")
+  ipAddress   String?       @db.VarChar(45) @map("ip_address")
+
+  // ── Fitur Keamanan Anti-Curang ──────────────────────────────────────
+  // Jumlah pelanggaran (misal: lepas screen pinning). Auto-submit saat >= 5.
+  counterPelanggaran Int     @default(0) @map("counter_pelanggaran")
+  // PIN acak dari server yang dikirim ke pengawas via WebSocket (emitPinGenerated).
+  // Diketik siswa di HP untuk membuka blokir. Dihapus (set null) setelah terpakai (one-time use).
+  unlockPin          String? @db.VarChar(10) @map("unlock_pin")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  exam    Exam     @relation(fields: [examId], references: [id], onDelete: Cascade)
+  answers Answer[]
+
+  @@unique([userId, examId])
+  @@index([status, updatedAt])  // offline detection & sessionCleanup job
+  @@index([examId])             // getParticipants per ujian
+  @@map("exam_attempts")
+}
+
+// Token akses ujian per exam — divalidasi siswa sebelum masuk ExamPlayerScreen.
+// Satu exam bisa punya satu token aktif, dikelola admin/guru.
+model ExamToken {
+  id        Int      @id @default(autoincrement())
+  examId    Int      @map("exam_id")
+  token     String   @db.VarChar(20)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  exam      Exam     @relation(fields: [examId], references: [id], onDelete: Cascade)
+
+  @@unique([examId, token])
+  @@map("exam_tokens")
+}
+
+// Token sesi login — divalidasi SEKALI saat login, dikelola admin.
+// Menghindari siswa login di luar lingkungan ujian yang terkontrol.
+model Session {
+  id          Int       @id @default(autoincrement())
+  token       String    @unique @db.VarChar(20)
+  description String?   @db.VarChar(255)
+  validFrom   DateTime? @map("valid_from")
+  validUntil  DateTime? @map("valid_until")
+  active      Boolean   @default(true)
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  @@map("sessions")
+}
+
+model Answer {
+  id            Int      @id @default(autoincrement())
+  userId        Int      @map("user_id")
+  examId        Int      @map("exam_id")
+  questionId    Int      @map("question_id")
+  attemptId     Int      @map("attempt_id")
+  optionId      Int?     @map("option_id")
+  essayAnswer   String?  @db.Text @map("essay_answer")
+  savedAt       DateTime? @map("saved_at")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  user     User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  exam     Exam        @relation(fields: [examId], references: [id], onDelete: Cascade)
+  question Question    @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  attempt  ExamAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  option   Option?     @relation(fields: [optionId], references: [id], onDelete: SetNull)
+
+  @@unique([userId, examId, questionId])
+  @@index([examId, questionId])  // auto-save row-level lock lookup
+  @@map("answers")
+}
