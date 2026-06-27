@@ -21,6 +21,7 @@ async function login(req, res, next) {
     const now = new Date();
     const session = await prisma.session.findUnique({
       where: { token: sessionToken.toUpperCase().trim() },
+      include: { room: true },
     });
 
     if (
@@ -38,10 +39,19 @@ async function login(req, res, next) {
       return unauthorized(res, 'NISN atau password salah.');
     }
 
-    const accessToken = sign({ id: user.id, role: user.role });
+    // Set student's room dynamically based on the session they log in with
+    const updatedUser = await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        roomId: session.roomId,
+        room: session.room.name,
+      },
+    });
+
+    const accessToken = sign({ id: updatedUser.id, role: updatedUser.role });
     return ok(res, {
       accessToken,
-      student: formatStudent(user),
+      student: formatStudent(updatedUser),
     }, 'Login berhasil.');
   } catch (e) { next(e); }
 }

@@ -1,20 +1,19 @@
 import 'dart:async';
-import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:freerasp/freerasp.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../../core/config/api_config.dart';
 import '../../core/models/question.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_radius.dart';
 import '../../core/theme/app_typography.dart';
 import '../../core/utils/answer_repository.dart';
-import '../../core/utils/dummy_data_repository.dart';
+import '../../core/utils/question_repository.dart';
+import '../../core/utils/socket_service.dart';
+import '../../core/utils/exam_token_repository.dart';
+import '../../core/utils/auth_repository.dart';
 import '../../core/utils/exam_progress_store.dart';
 import '../../core/utils/exam_session_tracker.dart';
 import '../../core/utils/monitor_repository.dart';
@@ -54,8 +53,9 @@ class _ExamPlayerScreenState extends State<ExamPlayerScreen>
     with WidgetsBindingObserver {
 
   // ── Data Soal ──────────────────────────────────────────────────────────────
-  late final List<Question> _questions;
+  List<Question> _questions = [];
   int _currentIndex = 0;
+  bool _isLoadingQuestions = true;
 
   // ── Timer Submit ──────────────────────────────────────────────────────────
   Duration _submitCountdown = const Duration(seconds: 30);
@@ -91,7 +91,6 @@ class _ExamPlayerScreenState extends State<ExamPlayerScreen>
   void initState() {
     super.initState();
     ExamSessionTracker.isExamActive.value = true;
-    _questions = DummyDataRepository.getExamQuestions(widget.examId);
     WidgetsBinding.instance.addObserver(this);
     _boot();
     // Mulai heartbeat ke server setiap 30 detik
@@ -114,6 +113,9 @@ class _ExamPlayerScreenState extends State<ExamPlayerScreen>
     SecurityGuard.unlockUi();
     // Hentikan heartbeat saat ujian selesai/screen ditutup
     MonitorRepository.stopHeartbeat();
+    // Bersihkan listener WebSocket
+    SocketService.instance.pinGeneratedEvent.removeListener(_handlePinGenerated);
+    SocketService.instance.studentResetEvent.removeListener(_handleStudentReset);
     super.dispose();
   }
 
@@ -131,7 +133,7 @@ class _ExamPlayerScreenState extends State<ExamPlayerScreen>
     await SecurityGuard.lockUi();
 
     _focusSubscription = SecurityGuard.windowFocusStream.listen(
-          (hasFocus) {
+      (hasFocus) {
         if (_isPinningInProgress) {
           debugPrint('[HERO EXAM] Focus loss diabaikan (proses re-pinning berlangsung)');
           return;
@@ -154,12 +156,73 @@ class _ExamPlayerScreenState extends State<ExamPlayerScreen>
     });
 
     final usagePermission =
-    await SecurityGuard.hasUsageStatsPermission().catchError((_) => false);
+        await SecurityGuard.hasUsageStatsPermission().catchError((_) => false);
     if (!mounted) return;
     setState(() => _usageAccessGranted = usagePermission);
 
     if (_isBlokir) {
       WidgetsBinding.instance.addPostFrameCallback((_) => _tampilkanDialogBlokir());
+    }
+
+    // Register socket listeners
+    SocketService.instance.pinGeneratedEvent.addListener(_handlePinGenerated);
+    SocketService.instance.studentResetEvent.addListener(_handleStudentReset);
+
+    // Load data dari backend
+    try {
+      final examIdInt = int.parse(widget.examId);
+      
+      // 1. Start exam session
+      await QuestionRepository.startExam(examIdInt);
+      
+      // 2. Fetch questions
+      final examQuestions = await QuestionRepository.fetchQuestions(examIdInt);
+      
+      // Map database questions to UI model questions
+      final mappedQuestions = examQuestions.map((eq) {
+        int? selectedIndex;
+        if (eq.savedOptionId != null) {
+          final idx = eq.options.indexWhere((opt) => opt.id == eq.savedOptionId);
+          if (idx != -1) {
+            selectedIndex = idx;
+          }
+        }
+        return Question(
+          id: eq.id,
+          displayNumber: eq.orderNum,
+          originalNumber: eq.orderNum,
+          questionText: eq.body,
+          imagePath: eq.questionImage,
+          options: eq.options.map((o) => o.body).toList(),
+          selectedOptionIndex: selectedIndex,
+        );
+      }).toList();
+      
+      // 3. Fetch current timer/violations from server
+      final timerResult = await QuestionRepository.fetchTimer(examIdInt);
+      
+      if (!mounted) return;
+      setState(() {
+        _questions = mappedQuestions;
+        _examTimeRemaining = Duration(seconds: timerResult.remainingSeconds);
+        // Sync local violations dengan server
+        if (timerResult.counterPelanggaran > _counterPelanggaran) {
+          _counterPelanggaran = timerResult.counterPelanggaran;
+          prefs.setInt(_kKeyCounter, _counterPelanggaran);
+        }
+        _isLoadingQuestions = false;
+      });
+
+    } catch (e) {
+      debugPrint('[HERO EXAM] Gagal boot sesi ujian: $e');
+      if (mounted) {
+        setState(() => _isLoadingQuestions = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Gagal memulai ujian: $e')),
+        );
+        Navigator.of(context).pop();
+        return;
+      }
     }
 
     _initFreeRasp();
@@ -448,6 +511,48 @@ class _ExamPlayerScreenState extends State<ExamPlayerScreen>
     // _isDiskualifikasi sudah di-set true — build() otomatis render layar ini.
   }
 
+  void _handlePinGenerated() async {
+    final event = SocketService.instance.pinGeneratedEvent.value;
+    if (event != null) {
+      const storage = FlutterSecureStorage();
+      final attemptIdStr = await storage.read(key: 'exam_attempt_id');
+      final attemptId = int.tryParse(attemptIdStr ?? '');
+      
+      if (attemptId != null && event['examAttemptId'] == attemptId) {
+        debugPrint('[ExamPlayerScreen] Menerima PIN unlock baru via WebSocket: ${event['pin']}');
+        final pin = event['pin']?.toString() ?? '';
+        if (pin.isNotEmpty) {
+          _pinController.text = pin;
+          await _verifikasiPin();
+        }
+      }
+    }
+  }
+
+  void _handleStudentReset() async {
+    final event = SocketService.instance.studentResetEvent.value;
+    if (event != null) {
+      try {
+        final studentMap = await AuthRepository.me();
+        final userId = studentMap['id'];
+        if (userId != null && event['studentId'] == 'stu_$userId') {
+          debugPrint('[ExamPlayerScreen] Sesi di-reset oleh pengawas via WebSocket.');
+          
+          await ExamTokenRepository.clearAttemptId();
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.remove(_kKeyIsBlokir);
+          await prefs.remove(_kKeyCounter);
+          
+          if (mounted) {
+            Navigator.of(context).pop(false);
+          }
+        }
+      } catch (e) {
+        debugPrint('[ExamPlayerScreen] Gagal memproses student-reset: $e');
+      }
+    }
+  }
+
   // ─────────────────────────────────────────────────────────────────────────
   // Navigasi & Jawaban
   // ─────────────────────────────────────────────────────────────────────────
@@ -556,6 +661,25 @@ class _ExamPlayerScreenState extends State<ExamPlayerScreen>
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoadingQuestions) {
+      return Scaffold(
+        backgroundColor: AppColors.background,
+        body: const Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              CircularProgressIndicator(color: AppColors.primary),
+              SizedBox(height: 16),
+              Text(
+                'Memuat soal ujian...',
+                style: TextStyle(color: Colors.white, fontSize: 14),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     return PopScope(
       canPop: false,
       child: Scaffold(

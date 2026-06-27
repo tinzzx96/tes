@@ -8,6 +8,7 @@ import '../../core/widgets/fade_in_item.dart';
 import '../../core/widgets/primary_button.dart';
 import '../../core/widgets/warning_banner.dart';
 import '../shell/app_shell.dart';
+import '../proctor/proctor_dashboard_screen.dart';
 
 /// Login Screen — sesuai mockup Frame 1/9.
 ///
@@ -52,11 +53,20 @@ class _LoginScreenState extends State<LoginScreen> {
         sessionToken: _tokenController.text.trim().toUpperCase(),
       );
 
+      final userProfile = await AuthRepository.me();
+      final role = userProfile['role']?.toString();
+
       if (!mounted) return;
 
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const AppShell()),
-      );
+      if (role == 'proctor' || role == 'admin') {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (_) => const ProctorDashboardScreen()),
+        );
+      } else {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (_) => const AppShell()),
+        );
+      }
     } on Exception catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

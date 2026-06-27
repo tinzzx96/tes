@@ -30,12 +30,12 @@ class ExamHistoryEntry {
 
   factory ExamHistoryEntry.fromJson(Map<String, dynamic> json) {
     return ExamHistoryEntry(
-      examId: json['examId'] as String,
-      subjectName: json['subjectName'] as String,
-      teacherName: json['teacherName'] as String,
-      examCode: json['examCode'] as String,
-      submittedAt: DateTime.parse(json['submittedAt'] as String),
-      score: json['score'] as int?,
+      examId: json['examId']?.toString() ?? '',
+      subjectName: json['subjectName'] ?? '',
+      teacherName: json['teacherName'] ?? '',
+      examCode: json['examCode'] ?? '',
+      submittedAt: DateTime.parse(json['submittedAt']),
+      score: (json['score'] as num?)?.toInt(),
     );
   }
 }

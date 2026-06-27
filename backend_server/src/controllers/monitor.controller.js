@@ -73,7 +73,7 @@ async function getParticipants(req, res, next) {
     const attempts = await prisma.examAttempt.findMany({
       where: { examId },
       include: {
-        user: { select: { id: true, name: true, nisn: true, class: true, room: true, device: true } },
+        user: { select: { id: true, name: true, nisn: true, class: true, room: true, roomId: true, device: true } },
         answers: { select: { id: true } },
       },
       orderBy: { user: { name: 'asc' } },
@@ -89,6 +89,7 @@ async function getParticipants(req, res, next) {
         nisn: a.user.nisn,
         class: a.user.class,
         room: a.user.room,
+        roomId: a.user.roomId,
         device: a.user.device,
         status: a.status === 'submitted' ? 'submitted' : isOffline ? 'offline' : a.status === 'started' ? 'online' : 'not_logged_in',
         progress: a.answers.length,

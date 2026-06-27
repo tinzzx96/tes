@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../core/utils/auto_logout_guard.dart';
 import '../../core/utils/exam_session_tracker.dart';
+import '../../core/utils/socket_service.dart';
 import '../../core/widgets/app_bottom_nav_bar.dart';
 import '../history/history_screen.dart';
 import '../home/home_screen.dart';
@@ -72,6 +73,10 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
     ExamSessionTracker.isExamActive.addListener(_handleExamActiveChanged);
 
+    // Hubungkan ke WebSocket & pasang listener reset
+    SocketService.instance.connect();
+    SocketService.instance.studentResetEvent.addListener(_handleStudentReset);
+
     AutoLogoutGuard.recordActiveDate();
     _scheduleMidnightTimer();
 
@@ -86,6 +91,8 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     ExamSessionTracker.isExamActive.removeListener(_handleExamActiveChanged);
+    SocketService.instance.studentResetEvent.removeListener(_handleStudentReset);
+    SocketService.instance.disconnect();
     _midnightTimer?.cancel();
     super.dispose();
   }
@@ -144,6 +151,14 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     if (!ExamSessionTracker.isExamActive.value && _logoutPending) {
       _logoutPending = false;
       _performLogout();
+    }
+  }
+
+  void _handleStudentReset() {
+    final event = SocketService.instance.studentResetEvent.value;
+    if (event != null) {
+      debugPrint('[AppShell] Menerima event student-reset, mereload completed IDs...');
+      _homeKey.currentState?.reloadCompletedIds();
     }
   }
 

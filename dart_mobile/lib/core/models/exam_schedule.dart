@@ -5,6 +5,7 @@
 /// dipetakan ke bentuk yang siap dipakai oleh UI Flutter.
 class ExamSchedule {
   final String id;
+  final String title;
   final String subjectName; // contoh: "Matematika"
   final String examCode; // contoh: "MTK-2026-UAS"
   final DateTime startTime;
@@ -12,9 +13,13 @@ class ExamSchedule {
   final String roomName; // contoh: "Ruang-14" atau "Lab-01"
   final String teacherName; // contoh: "Drs. Rajan Johnson"
   final int durationMinutes;
+  final String status;       // draft | active | completed
+  final String attemptStatus; // waiting | started | submitted
+  final double? score;
 
   const ExamSchedule({
     required this.id,
+    required this.title,
     required this.subjectName,
     required this.examCode,
     required this.startTime,
@@ -22,7 +27,13 @@ class ExamSchedule {
     required this.roomName,
     required this.teacherName,
     required this.durationMinutes,
+    required this.status,
+    required this.attemptStatus,
+    this.score,
   });
+
+  bool get isCompleted => attemptStatus == 'submitted';
+  bool get isActive => status == 'active';
 
   /// True jika jadwal ini jatuh pada hari ini (dibandingkan dengan [now]).
   bool isToday(DateTime now) {
@@ -56,17 +67,21 @@ class ExamSchedule {
   }
 
   static String _two(int value) => value.toString().padLeft(2, '0');
-}
 
-factory ExamSchedule.fromJson(Map<String, dynamic> json) {
-  return ExamSchedule(
-    id: json["id"].toString(),
-    subjectName: json["subject"] ?? "",
-    teacherName: json["teacher"] ?? "",
-    startTime: DateTime.parse(json["startTime"]),
-    endTime: DateTime.parse(json["endTime"]),
-    room: json["room"] ?? "",
-    examCode: json["examCode"] ?? "",
-    status: json["status"] ?? "draft",
-  );
+  factory ExamSchedule.fromJson(Map<String, dynamic> json) {
+    return ExamSchedule(
+      id: json["id"].toString(),
+      title: json["title"] ?? "",
+      subjectName: json["subject"] ?? "",
+      teacherName: json["teacher"] ?? "",
+      startTime: DateTime.parse(json["startTime"]),
+      endTime: DateTime.parse(json["endTime"]),
+      roomName: json["room"] ?? "",
+      examCode: json["examCode"] ?? "",
+      durationMinutes: json["durationMinutes"] ?? 90,
+      status: json["status"] ?? "draft",
+      attemptStatus: json["attemptStatus"] ?? "waiting",
+      score: (json["score"] as num?)?.toDouble(),
+    );
+  }
 }

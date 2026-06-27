@@ -41,7 +41,7 @@ class AnswerRepository {
       final attemptIdStr = await _storage.read(key: 'exam_attempt_id');
       if (attemptIdStr == null) return; // belum ada attempt aktif
 
-      final res = await http.post(
+      await http.post(
         Uri.parse(
             '${ApiConfig.baseUrl}/exam-attempts/$attemptIdStr/answers'),
         headers: ApiConfig.headers(token),

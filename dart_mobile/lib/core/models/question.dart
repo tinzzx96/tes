@@ -6,6 +6,7 @@ enum QuestionStatus { unanswered, answered, flagged }
 /// `displayNumber` = nomor kotak di navigator (1, 2, 3, ...).
 /// `originalNumber` = nomor asli soal di bank soal sebelum diacak.
 class Question {
+  final int id;
   final int displayNumber;
   final int originalNumber;
   final String questionText;
@@ -15,6 +16,7 @@ class Question {
   bool isFlagged;
 
   Question({
+    required this.id,
     required this.displayNumber,
     required this.originalNumber,
     required this.questionText,

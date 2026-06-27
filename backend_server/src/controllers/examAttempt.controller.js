@@ -56,7 +56,10 @@ async function saveAnswer(req, res, next) {
 
     const attempt = await prisma.examAttempt.findUnique({
       where: { id: attemptId },
-      include: { exam: { include: { questionBank: { select: { id: true } } } } },
+      include: {
+        user: { select: { id: true, room: true, roomId: true } },
+        exam: { include: { questionBank: { select: { id: true } } } },
+      },
     });
 
     if (!attempt || attempt.userId !== userId) return notFound(res, 'Sesi ujian tidak ditemukan.');
@@ -110,6 +113,20 @@ async function saveAnswer(req, res, next) {
         },
       });
     });
+
+    const progressCount = await prisma.answer.count({
+      where: { attemptId: attempt.id },
+    });
+
+    const { emitStudentStatusChanged } = require('../socket');
+    if (attempt.user?.room) {
+      emitStudentStatusChanged(attempt.user.room, {
+        studentId: `stu_${userId}`,
+        status: 'online',
+        progress: progressCount,
+        roomId: attempt.user.roomId,
+      });
+    }
 
     return ok(res, { saved: true, savedAt: serverSavedAt.toISOString() });
   } catch (e) { next(e); }

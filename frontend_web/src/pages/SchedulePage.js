@@ -69,6 +69,22 @@ export class SchedulePage extends BasePage {
 
     mounted() {
         this.loadSchedule();
+        this._connectSocket();
+    }
+
+    _connectSocket() {
+        try {
+            if (typeof io === 'undefined') return;
+            const token = authService.getToken();
+            const BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api').replace('/api', '');
+            this._socket = io(BASE_URL, { auth: { token } });
+
+            this._socket.on('exam-status-changed', () => {
+                this.loadSchedule();
+            });
+        } catch (_) {
+            // Silently fail
+        }
     }
 
     async loadSchedule() {
@@ -144,5 +160,9 @@ export class SchedulePage extends BasePage {
 
     beforeUnmount() {
         this.statusHeaderDestroy?.();
+        if (this._socket) {
+            this._socket.disconnect();
+            this._socket = null;
+        }
     }
 }

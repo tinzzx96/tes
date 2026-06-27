@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../../core/models/exam_schedule.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
-import '../../core/utils/dummy_data_repository.dart';
+import '../../core/utils/exam_schedule_repository.dart';
 import '../../core/widgets/fade_in_item.dart';
 import '../../core/widgets/header_status_actions.dart';
 import '../../core/widgets/schedule_card.dart';
@@ -42,13 +42,34 @@ class ScheduleScreen extends StatefulWidget {
 }
 
 class _ScheduleScreenState extends State<ScheduleScreen> {
-  List<ExamSchedule> _schedules = DummyDataRepository.getUpcomingSchedules();
+  List<ExamSchedule> _schedules = [];
+  bool _isLoading = false;
 
-  void _handleRefreshComplete() {
-    // TODO: Hapus fungsi bypass ini saat rilis Production
-    setState(() {
-      _schedules = DummyDataRepository.getUpcomingSchedules();
-    });
+  @override
+  void initState() {
+    super.initState();
+    _loadSchedules();
+  }
+
+  Future<void> _loadSchedules() async {
+    if (!mounted) return;
+    setState(() => _isLoading = true);
+    try {
+      final list = await ExamScheduleRepository.fetchToday();
+      if (!mounted) return;
+      setState(() {
+        _schedules = list;
+        _isLoading = false;
+      });
+    } catch (e) {
+      debugPrint('[ScheduleScreen] Gagal memuat jadwal: $e');
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+    }
+  }
+
+  void _handleRefreshComplete() async {
+    await _loadSchedules();
     // Beri tahu AppShell supaya HomeScreen ikut reload status completed-nya
     // sendiri — tanpa ini, centang hijau di Home tidak akan hilang
     // meskipun data di shared_preferences sudah direset di sini.
@@ -67,9 +88,13 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
           Expanded(
             child: Container(
               color: const Color(0xFFE8E8E8),
-              child: _schedules.isEmpty
-                  ? const _EmptyScheduleState()
-                  : _GroupedScheduleList(schedules: _schedules, now: now),
+              child: _isLoading
+                  ? const Center(
+                      child: CircularProgressIndicator(color: AppColors.primary),
+                    )
+                  : _schedules.isEmpty
+                      ? const _EmptyScheduleState()
+                      : _GroupedScheduleList(schedules: _schedules, now: now),
             ),
           ),
         ],

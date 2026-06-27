@@ -1,0 +1,1309 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full bg-bg-primary">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard Admin | EXAM PONCOL</title>
+  
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Alumni+Sans:ital,wght@0,100..900;1,100..900&family=Barlow+Condensed:ital,wght@0,100..900;1,100..900&family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Tailwind Configuration -->
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            'bg-primary': '#1C1C1C',
+            'bg-surface': '#2A2A2A',
+            'bg-surface-light': '#F0F0F0',
+            'primary': '#CC0000',
+            'primary-dark': '#990000',
+            'accent-gold': '#C9A84C',
+            'text-primary': '#FFFFFF',
+            'text-secondary': '#AAAAAA',
+            'text-dark': '#1C1C1C',
+            'text-muted': '#666666',
+            'text-accent': '#CC0000',
+            'online': '#00CC66',
+            'offline': '#666666',
+            'pending': '#C9A84C',
+            'submit-green': '#00CC66',
+            'danger-soft': '#E54848',
+            'warning-bg': '#3D3200',
+            'warning-border': '#C9A84C',
+            'warning-text': '#C9A84C',
+            'divider': '#333333',
+            'nav-bg': '#FFFFFF',
+            'nav-active': '#CC0000',
+            'nav-inactive': '#1C1C1C',
+            'sidebar-bg': '#161616',
+            'sidebar-hover': '#262626',
+            'sidebar-active': '#2A1010',
+            'avatar-bg': '#CC0000',
+            'avatar-text': '#FFFFFF',
+            'avatar-border': '#C9A84C',
+          },
+          fontFamily: {
+            'barlow': ['Barlow Condensed', 'sans-serif'],
+            'inter': ['Inter', 'sans-serif'],
+            'alumni': ['Alumni Sans', 'sans-serif'],
+          },
+          boxShadow: {
+            'glow-red': '0 0 15px rgba(204, 0, 0, 0.4)',
+            'glow-gold': '0 0 15px rgba(201, 168, 76, 0.3)',
+            'glow-green': '0 0 15px rgba(0, 204, 102, 0.4)',
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Custom styles & Animations -->
+  <style>
+    /* Custom Scrollbars */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #161616;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #333333;
+      border-radius: 9999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #CC0000;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      overflow-x: hidden;
+    }
+
+    /* Radar sweep animation */
+    @keyframes radar-sweep {
+      from {
+        transform: rotate(0deg);
+      }
+      to {
+        transform: rotate(360deg);
+      }
+    }
+    .radar-sweep-element {
+      animation: radar-sweep 4s linear infinite;
+      transform-origin: bottom right;
+    }
+
+    /* Pulse effect */
+    @keyframes custom-ping {
+      0% {
+        transform: scale(1);
+        opacity: 1;
+      }
+      100% {
+        transform: scale(2.2);
+        opacity: 0;
+      }
+    }
+    .animate-ping-custom {
+      animation: custom-ping 2s cubic-bezier(0, 0, 0.2, 1) infinite;
+    }
+  </style>
+</head>
+<body class="h-full bg-bg-primary text-text-primary antialiased flex selection:bg-primary selection:text-white">
+
+  <!-- ================= SIDEBAR ================= -->
+  <aside class="hidden md:flex flex-col w-72 bg-sidebar-bg border-r border-zinc-800/60 shrink-0">
+    <!-- Brand / Header -->
+    <div class="h-20 flex items-center px-6 border-b border-zinc-800/60 gap-3">
+      <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-primary-dark flex items-center justify-center shadow-glow-red">
+        <svg class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+        </svg>
+      </div>
+      <div>
+        <h1 class="font-barlow text-2xl tracking-widest leading-none font-black text-white">
+          EXAM<span class="text-accent-gold">PONCOL</span>
+        </h1>
+        <p class="text-[10px] uppercase tracking-wider text-text-muted font-bold mt-0.5">Enterprise Suite</p>
+      </div>
+    </div>
+
+    <!-- Navigation Section -->
+    <nav class="flex-1 px-4 py-6 space-y-1.5 overflow-y-auto">
+      <div class="text-[10px] uppercase font-bold tracking-widest text-text-muted px-3 mb-2">Menu Utama</div>
+      
+      <!-- Dashboard Link -->
+      <a href="#" class="flex items-center gap-3.5 px-3 py-3 rounded-xl bg-sidebar-active text-primary font-semibold border-l-2 border-primary transition-all duration-300">
+        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v4a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v4a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v4a2 2 0 01-2 2H6a2 2 0 01-2-2v-4zM14 16a2 2 0 012-2h2a2 2 0 012 2v4a2 2 0 01-2 2h-2a2 2 0 01-2-2v-4z" />
+        </svg>
+        <span class="font-medium text-sm text-text-primary">Dashboard</span>
+      </a>
+
+      <!-- Real-Time Proctoring Link -->
+      <a href="#" onclick="openProctoringModal()" class="flex items-center gap-3.5 px-3 py-3 rounded-xl text-text-secondary hover:bg-sidebar-hover hover:text-white transition-all duration-300 group">
+        <div class="relative">
+          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            <path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+          </svg>
+          <span class="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-online animate-pulse"></span>
+        </div>
+        <span class="font-medium text-sm">Proctoring Live</span>
+      </a>
+
+      <div class="text-[10px] uppercase font-bold tracking-widest text-text-muted px-3 pt-6 mb-2">Akademik & Ujian</div>
+
+      <!-- Exams Link -->
+      <a href="#" class="flex items-center gap-3.5 px-3 py-3 rounded-xl text-text-secondary hover:bg-sidebar-hover hover:text-white transition-all duration-300 group">
+        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+        </svg>
+        <span class="font-medium text-sm">Kelola Ujian</span>
+        <span class="ml-auto px-2 py-0.5 text-[10px] bg-primary/20 text-primary font-bold rounded-md">5 Active</span>
+      </a>
+
+      <!-- Students Link -->
+      <a href="#" class="flex items-center gap-3.5 px-3 py-3 rounded-xl text-text-secondary hover:bg-sidebar-hover hover:text-white transition-all duration-300">
+        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+        </svg>
+        <span class="font-medium text-sm">Data Siswa</span>
+      </a>
+
+      <!-- Teachers Link -->
+      <a href="#" class="flex items-center gap-3.5 px-3 py-3 rounded-xl text-text-secondary hover:bg-sidebar-hover hover:text-white transition-all duration-300">
+        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+        </svg>
+        <span class="font-medium text-sm">Data Guru</span>
+      </a>
+
+      <div class="text-[10px] uppercase font-bold tracking-widest text-text-muted px-3 pt-6 mb-2">Keamanan & Sistem</div>
+
+      <!-- Settings -->
+      <a href="#" onclick="toggleSettingsModal(true)" class="flex items-center gap-3.5 px-3 py-3 rounded-xl text-text-secondary hover:bg-sidebar-hover hover:text-white transition-all duration-300">
+        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+          <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+        </svg>
+        <span class="font-medium text-sm">Pengukuran Konfigurasi</span>
+      </a>
+
+      <!-- Logs -->
+      <a href="#" class="flex items-center gap-3.5 px-3 py-3 rounded-xl text-text-secondary hover:bg-sidebar-hover hover:text-white transition-all duration-300">
+        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+        <span class="font-medium text-sm">System Logs</span>
+      </a>
+    </nav>
+
+    <!-- Sidebar Footer -->
+    <div class="p-4 border-t border-zinc-800/60 bg-black/20">
+      <div class="flex items-center gap-3">
+        <div class="w-9 h-9 rounded-xl bg-avatar-bg border border-avatar-border/40 flex items-center justify-center text-avatar-text font-black text-sm shadow-glow-red">
+          MA
+        </div>
+        <div class="min-w-0 flex-1">
+          <p class="text-xs font-bold text-white truncate">Martin Admin</p>
+          <p class="text-[10px] text-text-muted truncate">martin@poncol.ac.id</p>
+        </div>
+        <button class="p-1.5 text-text-muted hover:text-primary transition-colors">
+          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+          </svg>
+        </button>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ================= MAIN WORKSPACE ================= -->
+  <main class="flex-1 flex flex-col min-w-0 relative overflow-y-auto">
+    
+    <!-- ================= INTEGRATED TOP-BAR ================= -->
+    <header class="h-20 border-b border-zinc-800/60 bg-sidebar-bg/60 backdrop-blur-md sticky top-0 z-40 flex items-center justify-between px-6 md:px-8">
+      
+      <!-- Left side: Context Title & Mobile Burger -->
+      <div class="flex items-center gap-4">
+        <!-- Mobile menu button -->
+        <button class="block md:hidden p-2 rounded-xl text-text-secondary hover:bg-zinc-800/60 hover:text-white transition-all">
+          <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16m-7 6h7" />
+          </svg>
+        </button>
+        
+        <div>
+          <div class="flex items-center gap-2">
+            <span class="w-1.5 h-4 bg-primary rounded-full"></span>
+            <h2 class="text-lg font-black tracking-wider uppercase text-white font-barlow">Dashboard Admin</h2>
+          </div>
+          <p class="text-[10px] text-text-secondary font-medium tracking-wide">EXAM PONCOL SYSTEM CENTRAL CONTROL</p>
+        </div>
+      </div>
+
+      <!-- Center: Search Bar -->
+      <div class="hidden lg:block w-96 relative">
+        <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
+          <svg class="h-4.5 w-4.5 text-text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+        </div>
+        <input type="text" id="global-search-input" placeholder="Cari data, ujian, atau siswa..." 
+          class="w-full pl-10 pr-12 py-2 rounded-xl bg-zinc-900/40 border border-zinc-800/60 text-white placeholder-text-muted text-sm focus:outline-none focus:border-primary/80 focus:ring-1 focus:ring-primary/80 transition-all duration-300"
+          oninput="handleGlobalSearch(this.value)">
+        <div class="absolute inset-y-0 right-0 pr-3.5 flex items-center pointer-events-none">
+          <kbd class="px-1.5 py-0.5 text-[9px] font-bold text-text-muted border border-zinc-800 rounded bg-zinc-950/60">⌘K</kbd>
+        </div>
+
+        <!-- Search dropdown results -->
+        <div id="search-results-dropdown" class="hidden absolute top-full left-0 right-0 mt-2 bg-[#252525] border border-zinc-800/90 rounded-xl shadow-2xl p-2 z-50">
+          <div class="text-[10px] font-bold uppercase tracking-widest text-text-muted px-2 py-1">Hasil Pencarian Cepat</div>
+          <div class="mt-1 space-y-0.5" id="search-results-list">
+            <!-- Dynamic elements will be inserted here -->
+          </div>
+        </div>
+      </div>
+
+      <!-- Right: Utility Icons & Profile -->
+      <div class="flex items-center gap-4">
+        
+        <!-- Utility icons -->
+        <div class="flex items-center gap-2 border-r border-zinc-850 pr-4">
+          <!-- Notification Bell -->
+          <div class="relative">
+            <button onclick="toggleNotificationDropdown()" class="p-2 rounded-xl text-text-secondary hover:bg-zinc-850 hover:text-white transition-all duration-300 relative">
+              <svg class="w-5.5 h-5.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+              </svg>
+              <!-- Unread notification indicator badge -->
+              <span class="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-primary border-2 border-sidebar-bg rounded-full flex items-center justify-center">
+                <span class="absolute inline-flex h-full w-full rounded-full bg-primary opacity-75 animate-ping"></span>
+              </span>
+            </button>
+
+            <!-- Notifications Dropdown -->
+            <div id="notifications-dropdown" class="hidden absolute right-0 mt-3 w-80 bg-[#252525] border border-zinc-800/90 rounded-xl shadow-2xl overflow-hidden z-50">
+              <div class="p-4 border-b border-zinc-800/60 flex items-center justify-between">
+                <h4 class="font-bold text-xs uppercase tracking-wider text-white">Notifikasi Real-Time</h4>
+                <span class="text-[10px] font-semibold text-primary bg-primary/10 px-2 py-0.5 rounded">3 Baru</span>
+              </div>
+              <div class="divide-y divide-zinc-800/50 max-h-72 overflow-y-auto">
+                <div class="p-3.5 hover:bg-zinc-800/40 transition-colors">
+                  <p class="text-xs text-text-secondary"><span class="font-semibold text-white">Budi Santoso</span> terdeteksi memindahkan fokus window.</p>
+                  <p class="text-[10px] text-text-muted mt-1">2 menit yang lalu • Ujian Kimia</p>
+                </div>
+                <div class="p-3.5 hover:bg-zinc-800/40 transition-colors">
+                  <p class="text-xs text-text-secondary"><span class="font-semibold text-white">Siti Aminah</span> berhasil menyelesaikan ujian Matematika Dasar.</p>
+                  <p class="text-[10px] text-text-muted mt-1">8 menit yang lalu • Selesai</p>
+                </div>
+                <div class="p-3.5 hover:bg-zinc-800/40 transition-colors">
+                  <p class="text-xs text-text-secondary">Ujian <span class="font-semibold text-accent-gold">Biologi Sel</span> baru saja diaktifkan oleh admin.</p>
+                  <p class="text-[10px] text-text-muted mt-1">15 menit yang lalu • Event Sistem</p>
+                </div>
+              </div>
+              <a href="#" class="block text-center py-2.5 text-[10px] font-bold uppercase tracking-wider bg-black/20 text-text-muted hover:text-white hover:bg-black/30 transition-colors">
+                Tampilkan Semua Notifikasi
+              </a>
+            </div>
+          </div>
+
+          <!-- Settings shortcut -->
+          <button onclick="toggleSettingsModal(true)" class="p-2 rounded-xl text-text-secondary hover:bg-zinc-850 hover:text-white transition-all duration-300 group">
+            <svg class="w-5.5 h-5.5 transform group-hover:rotate-45 transition-transform duration-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+              <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+          </button>
+        </div>
+
+        <!-- Admin Profile -->
+        <div class="flex items-center gap-3">
+          <div class="text-right hidden sm:block">
+            <p class="text-xs font-bold text-white leading-tight">Admin Utama</p>
+            <p class="text-[9px] text-accent-gold uppercase font-bold tracking-widest leading-none">Super Administrator</p>
+          </div>
+          <div class="w-10 h-10 rounded-full bg-avatar-bg border-2 border-avatar-border flex items-center justify-center text-avatar-text font-black text-sm shadow-glow-red relative cursor-pointer group">
+            MA
+            <span class="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-online border-2 border-sidebar-bg"></span>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- ================= SCROLLABLE CONTENT BODY ================= -->
+    <div class="p-6 md:p-8 space-y-8 flex-1">
+      
+      <!-- ================= ADVANCED METRIC CARDS GRID ================= -->
+      <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        
+        <!-- Metric Card 1: Total Guru -->
+        <div class="relative overflow-hidden rounded-2xl border border-zinc-800/60 backdrop-blur-md bg-zinc-900/30 p-5 flex flex-col justify-between h-36 hover:border-zinc-700/80 transition-all duration-300 group">
+          <!-- background subtle grid or glow -->
+          <div class="absolute -right-6 -bottom-6 w-24 h-24 bg-accent-gold/5 rounded-full blur-2xl group-hover:bg-accent-gold/10 transition-all duration-300"></div>
+          
+          <div class="flex items-start justify-between">
+            <div>
+              <p class="text-[11px] font-bold uppercase tracking-widest text-text-secondary">Total Guru</p>
+              <h3 class="text-3xl font-black text-white mt-1">3</h3>
+            </div>
+            <div class="p-2 rounded-xl bg-zinc-850 text-accent-gold border border-zinc-800/60 shadow-inner">
+              <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+              </svg>
+            </div>
+          </div>
+          
+          <div class="flex items-end justify-between mt-4">
+            <span class="text-[10px] text-text-muted font-semibold flex items-center gap-1">
+              <span class="text-online flex items-center font-bold">▲ 0%</span> dibanding bulan lalu
+            </span>
+            <!-- Sparkline (Stable Gold Gradient) -->
+            <div class="w-20 h-8">
+              <svg class="w-full h-full" viewBox="0 0 100 30" preserveAspectRatio="none">
+                <defs>
+                  <linearGradient id="goldGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stop-color="#C9A84C" stop-opacity="0.4"/>
+                    <stop offset="100%" stop-color="#C9A84C" stop-opacity="0"/>
+                  </linearGradient>
+                </defs>
+                <path d="M 0 25 L 20 20 L 40 22 L 60 18 L 80 18 L 100 15" fill="none" stroke="#C9A84C" stroke-width="2" stroke-linecap="round"/>
+                <path d="M 0 25 L 20 20 L 40 22 L 60 18 L 80 18 L 100 15 L 100 30 L 0 30 Z" fill="url(#goldGradient)"/>
+              </svg>
+            </div>
+          </div>
+        </div>
+
+        <!-- Metric Card 2: Total Siswa -->
+        <div class="relative overflow-hidden rounded-2xl border border-zinc-800/60 backdrop-blur-md bg-zinc-900/30 p-5 flex flex-col justify-between h-36 hover:border-zinc-700/80 transition-all duration-300 group">
+          <div class="absolute -right-6 -bottom-6 w-24 h-24 bg-online/5 rounded-full blur-2xl group-hover:bg-online/10 transition-all duration-300"></div>
+          
+          <div class="flex items-start justify-between">
+            <div>
+              <p class="text-[11px] font-bold uppercase tracking-widest text-text-secondary">Total Siswa</p>
+              <h3 class="text-3xl font-black text-white mt-1">9</h3>
+            </div>
+            <div class="p-2 rounded-xl bg-zinc-850 text-online border border-zinc-800/60 shadow-inner">
+              <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+              </svg>
+            </div>
+          </div>
+          
+          <div class="flex items-end justify-between mt-4">
+            <span class="text-[10px] text-text-muted font-semibold flex items-center gap-1">
+              <span class="text-online flex items-center font-bold">▲ 12.5%</span> kenaikan pendaftaran
+            </span>
+            <!-- Sparkline (Growth Green Gradient) -->
+            <div class="w-20 h-8">
+              <svg class="w-full h-full" viewBox="0 0 100 30" preserveAspectRatio="none">
+                <defs>
+                  <linearGradient id="greenGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stop-color="#00CC66" stop-opacity="0.4"/>
+                    <stop offset="100%" stop-color="#00CC66" stop-opacity="0"/>
+                  </linearGradient>
+                </defs>
+                <path d="M 0 28 L 20 22 L 40 25 L 60 15 L 80 12 L 100 5" fill="none" stroke="#00CC66" stroke-width="2" stroke-linecap="round"/>
+                <path d="M 0 28 L 20 22 L 40 25 L 60 15 L 80 12 L 100 5 L 100 30 L 0 30 Z" fill="url(#greenGradient)"/>
+              </svg>
+            </div>
+          </div>
+        </div>
+
+        <!-- Metric Card 3: Total Ujian -->
+        <div class="relative overflow-hidden rounded-2xl border border-zinc-800/60 backdrop-blur-md bg-zinc-900/30 p-5 flex flex-col justify-between h-36 hover:border-zinc-700/80 transition-all duration-300 group">
+          <div class="absolute -right-6 -bottom-6 w-24 h-24 bg-primary/5 rounded-full blur-2xl group-hover:bg-primary/10 transition-all duration-300"></div>
+          
+          <div class="flex items-start justify-between">
+            <div>
+              <p class="text-[11px] font-bold uppercase tracking-widest text-text-secondary">Total Ujian</p>
+              <h3 class="text-3xl font-black text-white mt-1">5</h3>
+            </div>
+            <div class="p-2 rounded-xl bg-zinc-850 text-primary border border-zinc-800/60 shadow-inner">
+              <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+            </div>
+          </div>
+          
+          <div class="flex items-end justify-between mt-4">
+            <span class="text-[10px] text-text-muted font-semibold flex items-center gap-1">
+              <span class="text-online font-bold">3 Aktif</span> dijadwalkan hari ini
+            </span>
+            <!-- Sparkline (Fluctuating Primary Gradient) -->
+            <div class="w-20 h-8">
+              <svg class="w-full h-full" viewBox="0 0 100 30" preserveAspectRatio="none">
+                <defs>
+                  <linearGradient id="redGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stop-color="#CC0000" stop-opacity="0.4"/>
+                    <stop offset="100%" stop-color="#CC0000" stop-opacity="0"/>
+                  </linearGradient>
+                </defs>
+                <path d="M 0 18 L 20 25 L 40 10 L 60 22 L 80 14 L 100 8" fill="none" stroke="#CC0000" stroke-width="2" stroke-linecap="round"/>
+                <path d="M 0 18 L 20 25 L 40 10 L 60 22 L 80 14 L 100 8 L 100 30 L 0 30 Z" fill="url(#redGradient)"/>
+              </svg>
+            </div>
+          </div>
+        </div>
+
+        <!-- Metric Card 4: Ujian Aktif -->
+        <div class="relative overflow-hidden rounded-2xl border border-zinc-800/60 backdrop-blur-md bg-zinc-900/30 p-5 flex flex-col justify-between h-36 hover:border-zinc-700/80 transition-all duration-300 group">
+          <div class="absolute -right-6 -bottom-6 w-24 h-24 bg-primary/10 rounded-full blur-2xl group-hover:bg-primary/20 transition-all duration-300"></div>
+          
+          <div class="flex items-start justify-between">
+            <div>
+              <p class="text-[11px] font-bold uppercase tracking-widest text-text-secondary">Ujian Aktif</p>
+              <h3 class="text-3xl font-black text-white mt-1">4</h3>
+            </div>
+            <!-- Pulsing Connection Badge -->
+            <div class="flex items-center gap-2 px-2.5 py-1 rounded-xl bg-primary/15 border border-primary/30 shadow-inner">
+              <span class="relative flex h-2 w-2">
+                <span class="animate-ping-custom absolute inline-flex h-full w-full rounded-full bg-[#00CC66] opacity-75"></span>
+                <span class="relative inline-flex rounded-full h-2 w-2 bg-[#00CC66]"></span>
+              </span>
+              <span class="text-[9px] font-black tracking-wider uppercase text-white font-barlow">Sedang Berlangsung</span>
+            </div>
+          </div>
+          
+          <div class="flex items-end justify-between mt-4">
+            <span class="text-[10px] text-text-secondary font-semibold flex items-center gap-1.5">
+              <span class="w-1.5 h-1.5 rounded-full bg-online"></span> WS Sync Aktif
+            </span>
+            <!-- Sparkline (Real-Time Live Wave) -->
+            <div class="w-20 h-8">
+              <svg class="w-full h-full" viewBox="0 0 100 30" preserveAspectRatio="none">
+                <defs>
+                  <linearGradient id="liveGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stop-color="#CC0000" stop-opacity="0.4"/>
+                    <stop offset="100%" stop-color="#CC0000" stop-opacity="0"/>
+                  </linearGradient>
+                </defs>
+                <path id="live-sparkline-path" d="M 0 15 Q 12.5 5, 25 15 T 50 15 T 75 15 T 100 15" fill="none" stroke="#CC0000" stroke-width="2" stroke-linecap="round"/>
+                <path id="live-sparkline-fill" d="M 0 15 Q 12.5 5, 25 15 T 50 15 T 75 15 T 100 15 L 100 30 L 0 30 Z" fill="url(#liveGradient)"/>
+              </svg>
+            </div>
+          </div>
+        </div>
+
+      </section>
+
+      <!-- ================= TWO-COLUMN HIGH-PERFORMANCE WORKSPACE ================= -->
+      <section class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        <!-- ================= LEFT COLUMN: TIMELINE (65% width) ================= -->
+        <div class="lg:col-span-2 rounded-2xl border border-zinc-800/60 backdrop-blur-md bg-zinc-900/30 p-6 md:p-8 flex flex-col justify-between">
+          <div>
+            <div class="flex items-center justify-between pb-6 border-b border-zinc-850">
+              <div>
+                <h3 class="text-lg font-black tracking-wider text-white uppercase font-barlow">Aktivitas Terbaru</h3>
+                <p class="text-xs text-text-secondary mt-1">Real-time updates dari sistem ujian & sinkronisasi siswa</p>
+              </div>
+              <div class="flex items-center gap-2">
+                <span class="px-2.5 py-1 text-[10px] bg-zinc-800/80 text-text-secondary rounded-xl font-semibold border border-zinc-700/60">Live Log</span>
+                <span class="w-2.5 h-2.5 rounded-full bg-online animate-pulse shadow-glow-green"></span>
+              </div>
+            </div>
+
+            <!-- Vertical Timeline -->
+            <div class="mt-8 relative pl-6">
+              <!-- Thin Low-Opacity Guide Line -->
+              <div class="absolute left-3.5 top-2 bottom-2 w-0.5 bg-zinc-800/80"></div>
+              
+              <!-- Timeline Items Container -->
+              <div class="space-y-8" id="timeline-container">
+                
+                <!-- Node 1 -->
+                <div class="relative flex flex-col sm:flex-row sm:items-start justify-between gap-2 group transition-all duration-300">
+                  <!-- Node Indicator circle -->
+                  <div class="absolute -left-5 top-1 w-3 h-3 rounded-full bg-primary border-2 border-bg-primary shadow-glow-red group-hover:scale-125 transition-transform duration-300"></div>
+                  
+                  <div class="flex-1">
+                    <p class="text-sm font-semibold text-white group-hover:text-primary transition-colors">
+                      Siswa baru terdaftar: <span class="text-primary font-bold">Budi Santoso</span>
+                    </p>
+                    <p class="text-xs text-text-muted mt-1">
+                      Terdaftar pada Kelas: <span class="text-white">XII IPA 1</span> • Jalur Ujian Utama
+                    </p>
+                  </div>
+                  <div class="text-right shrink-0 mt-0.5 sm:mt-0">
+                    <span class="text-[11px] font-medium text-text-muted tracking-wide">10 menit yang lalu</span>
+                  </div>
+                </div>
+
+                <!-- Node 2 -->
+                <div class="relative flex flex-col sm:flex-row sm:items-start justify-between gap-2 group transition-all duration-300">
+                  <div class="absolute -left-5 top-1 w-3 h-3 rounded-full bg-accent-gold border-2 border-bg-primary shadow-glow-gold group-hover:scale-125 transition-transform duration-300"></div>
+                  
+                  <div class="flex-1">
+                    <p class="text-sm font-semibold text-white">
+                      Ujian <span class="text-accent-gold font-bold">Matematika Dasar</span> Selesai
+                    </p>
+                    <p class="text-xs text-text-muted mt-1">
+                      Oleh: <span class="text-primary font-bold">Siti Aminah</span> • Nilai: <span class="text-online font-bold">88/100</span> (Lolos Grade)
+                    </p>
+                  </div>
+                  <div class="text-right shrink-0 mt-0.5 sm:mt-0">
+                    <span class="text-[11px] font-medium text-text-muted tracking-wide">25 menit yang lalu</span>
+                  </div>
+                </div>
+
+                <!-- Node 3 (Alert warning) -->
+                <div class="relative flex flex-col sm:flex-row sm:items-start justify-between gap-2 group transition-all duration-300">
+                  <div class="absolute -left-5 top-1 w-3 h-3 rounded-full bg-primary border-2 border-bg-primary shadow-glow-red group-hover:scale-125 transition-transform duration-300"></div>
+                  
+                  <div class="flex-1">
+                    <p class="text-sm font-semibold text-white">
+                      Siswa <span class="text-primary font-bold">Andi Wijaya</span> terdeteksi keluar dari layar ujian!
+                    </p>
+                    <p class="text-xs text-text-muted mt-1">
+                      Peringatan tingkat 1 dikirimkan otomatis oleh sistem proctoring WebSocket.
+                    </p>
+                  </div>
+                  <div class="text-right shrink-0 mt-0.5 sm:mt-0">
+                    <span class="text-[11px] font-medium text-text-muted tracking-wide">40 menit yang lalu</span>
+                  </div>
+                </div>
+
+                <!-- Node 4 -->
+                <div class="relative flex flex-col sm:flex-row sm:items-start justify-between gap-2 group transition-all duration-300">
+                  <div class="absolute -left-5 top-1 w-3 h-3 rounded-full bg-zinc-600 border-2 border-bg-primary group-hover:scale-125 transition-transform duration-300"></div>
+                  
+                  <div class="flex-1">
+                    <p class="text-sm font-semibold text-white">
+                      Ujian Baru Dibuat: <span class="text-accent-gold font-bold">Fisika Quantum</span>
+                    </p>
+                    <p class="text-xs text-text-muted mt-1">
+                      Dibuat oleh Guru: <span class="text-white font-medium">Dr. H. Bambang</span> • Durasi: 90 menit
+                    </p>
+                  </div>
+                  <div class="text-right shrink-0 mt-0.5 sm:mt-0">
+                    <span class="text-[11px] font-medium text-text-muted tracking-wide">1 jam yang lalu</span>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+          </div>
+          
+          <div class="mt-8 pt-4 border-t border-zinc-850 flex items-center justify-between">
+            <p class="text-[10px] text-text-muted uppercase font-bold tracking-wider">WebSocket: Terhubung dengan 4 Server Node</p>
+            <button onclick="simulateNewEvent()" class="text-xs font-semibold text-primary hover:text-white transition-colors flex items-center gap-1">
+              <span>Simulasikan Aktivitas Baru</span>
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- ================= RIGHT COLUMN: SYSTEM HEALTH & LIVE MONITORING (35% width) ================= -->
+        <div class="space-y-6">
+          
+          <!-- System Health Panel -->
+          <div class="rounded-2xl border border-zinc-800/60 backdrop-blur-md bg-zinc-900/30 p-6 flex flex-col justify-between">
+            <div>
+              <div class="flex items-center justify-between pb-4 border-b border-zinc-850">
+                <h3 class="text-sm font-black tracking-wider text-white uppercase font-barlow">Status Sistem Utama</h3>
+                <span class="text-[9px] font-bold text-online bg-online/15 px-2 py-0.5 rounded-lg border border-online/30 uppercase tracking-widest">Normal</span>
+              </div>
+              
+              <div class="mt-6 space-y-5">
+                
+                <!-- Server API -->
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center gap-3">
+                    <div class="relative flex h-2 w-2">
+                      <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-online opacity-75"></span>
+                      <span class="relative inline-flex rounded-full h-2 w-2 bg-online"></span>
+                    </div>
+                    <div>
+                      <h4 class="text-xs font-bold text-white">Server API</h4>
+                      <p class="text-[10px] text-text-muted mt-0.5">CPU Load: <span id="cpu-load-text">24%</span></p>
+                    </div>
+                  </div>
+                  <!-- Mini Bar Indicator -->
+                  <div class="w-24 bg-zinc-800 rounded-full h-1.5 overflow-hidden border border-zinc-700/30">
+                    <div id="cpu-load-bar" class="bg-online h-full transition-all duration-1000" style="width: 24%"></div>
+                  </div>
+                </div>
+
+                <!-- Database Connection -->
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center gap-3">
+                    <div class="relative flex h-2 w-2">
+                      <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-online opacity-75"></span>
+                      <span class="relative inline-flex rounded-full h-2 w-2 bg-online"></span>
+                    </div>
+                    <div>
+                      <h4 class="text-xs font-bold text-white">Prisma Database</h4>
+                      <p class="text-[10px] text-text-muted mt-0.5">Latency: <span id="db-latency-text">12ms</span></p>
+                    </div>
+                  </div>
+                  <!-- Mini Bar Indicator -->
+                  <div class="w-24 bg-zinc-800 rounded-full h-1.5 overflow-hidden border border-zinc-700/30">
+                    <div id="db-latency-bar" class="bg-online h-full transition-all duration-1000" style="width: 8%"></div>
+                  </div>
+                </div>
+
+                <!-- Network Traffic -->
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center gap-3">
+                    <div class="relative flex h-2 w-2">
+                      <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-online opacity-75"></span>
+                      <span class="relative inline-flex rounded-full h-2 w-2 bg-online"></span>
+                    </div>
+                    <div>
+                      <h4 class="text-xs font-bold text-white">Traffic Throughput</h4>
+                      <p class="text-[10px] text-text-muted mt-0.5">Load: <span id="traffic-load-text">42 req/s</span></p>
+                    </div>
+                  </div>
+                  <!-- Mini Bar Indicator -->
+                  <div class="w-24 bg-zinc-800 rounded-full h-1.5 overflow-hidden border border-zinc-700/30">
+                    <div id="traffic-load-bar" class="bg-[#00CC66] h-full transition-all duration-1000" style="style: width: 35%"></div>
+                  </div>
+                </div>
+
+                <!-- WebSocket Health -->
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center gap-3">
+                    <div class="relative flex h-2 w-2">
+                      <span class="animate-ping-custom absolute inline-flex h-full w-full rounded-full bg-accent-gold opacity-75"></span>
+                      <span class="relative inline-flex rounded-full h-2 w-2 bg-accent-gold"></span>
+                    </div>
+                    <div>
+                      <h4 class="text-xs font-bold text-white">Live Proctor Sync</h4>
+                      <p class="text-[10px] text-text-muted mt-0.5">Channels: 4 Active</p>
+                    </div>
+                  </div>
+                  <span class="text-[10px] font-bold text-accent-gold uppercase tracking-wider">Synchronized</span>
+                </div>
+
+              </div>
+            </div>
+            
+            <div class="mt-6 pt-4 border-t border-zinc-850 flex items-center justify-between text-[10px] text-text-muted">
+              <span>Uptime: 14 Hari, 2 Jam</span>
+              <span class="text-primary hover:text-white cursor-pointer transition-colors" onclick="refreshSystemStats()">Force Diagnostics</span>
+            </div>
+          </div>
+
+          <!-- Real-Time Monitoring Call-to-Action Card -->
+          <div class="relative overflow-hidden rounded-2xl border border-primary/40 backdrop-blur-md bg-gradient-to-br from-primary-dark/30 via-zinc-900/90 to-bg-primary/95 p-6 flex flex-col justify-between h-72 group shadow-glow-red">
+            <!-- Radial background highlight for a luxurious depth effect -->
+            <div class="absolute -right-16 -top-16 w-48 h-48 bg-primary/10 rounded-full blur-3xl group-hover:bg-primary/20 transition-all duration-500"></div>
+            
+            <div>
+              <div class="flex items-center gap-2">
+                <span class="relative flex h-3 w-3">
+                  <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+                  <span class="relative inline-flex rounded-full h-3 w-3 bg-primary"></span>
+                </span>
+                <h3 class="font-barlow text-lg font-black tracking-wider text-white uppercase">Radar Proctoring Live</h3>
+              </div>
+              <p class="text-xs text-text-secondary mt-3 leading-relaxed">
+                Ada <span class="text-white font-black underline">4 Ujian</span> yang sedang berjalan serentak. Pantau aktivitas kecurangan siswa langsung secara real-time via panel radar proctoring.
+              </p>
+              
+              <!-- Mini indicator metrics -->
+              <div class="grid grid-cols-3 gap-2 mt-4">
+                <div class="bg-black/35 rounded-xl p-2 border border-zinc-800/40 text-center">
+                  <p class="text-[9px] text-text-muted uppercase font-bold tracking-wider">Ujian</p>
+                  <p class="text-sm font-black text-white">4</p>
+                </div>
+                <div class="bg-black/35 rounded-xl p-2 border border-zinc-800/40 text-center">
+                  <p class="text-[9px] text-text-muted uppercase font-bold tracking-wider">Siswa</p>
+                  <p class="text-sm font-black text-white">9</p>
+                </div>
+                <div class="bg-black/35 rounded-xl p-2 border border-zinc-800/40 text-center">
+                  <p class="text-[9px] text-text-muted uppercase font-bold tracking-wider">Warning</p>
+                  <p class="text-sm font-black text-primary">1</p>
+                </div>
+              </div>
+            </div>
+
+            <div class="mt-5">
+              <button onclick="openProctoringModal()" class="w-full py-3 bg-transparent hover:bg-primary border-2 border-primary text-white rounded-xl font-bold uppercase tracking-wider text-xs shadow-glow-red hover:shadow-none hover:scale-[1.02] transform transition-all duration-300 flex items-center justify-center gap-2">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                </svg>
+                <span>Buka Proctoring Radar</span>
+              </button>
+            </div>
+          </div>
+
+        </div>
+
+      </section>
+
+    </div>
+
+    <!-- ================= FLOATING ACTION BUTTON (FAB) ================= -->
+    <div class="fixed bottom-6 right-6 z-50">
+      <button onclick="toggleCreateModal(true)" class="w-14 h-14 rounded-full bg-gradient-to-br from-primary to-primary-dark border-2 border-accent-gold text-white shadow-glow-red hover:shadow-glow-gold hover:scale-110 active:scale-95 transform transition-all duration-300 flex items-center justify-center group">
+        <svg class="w-6 h-6 transform group-hover:rotate-90 transition-transform duration-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+        </svg>
+      </button>
+    </div>
+
+  </main>
+
+  <!-- ======================================================= -->
+  <!-- ======================== MODALS ======================== -->
+  <!-- ======================================================= -->
+
+  <!-- 1. Real-Time Proctoring Radar Modal -->
+  <div id="proctoring-modal" class="hidden fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4">
+    <!-- Backdrop -->
+    <div class="fixed inset-0 bg-black/85 backdrop-blur-md" onclick="closeProctoringModal()"></div>
+    
+    <!-- Modal Content -->
+    <div class="relative bg-bg-surface border border-zinc-800 rounded-2xl max-w-4xl w-full p-6 md:p-8 overflow-hidden shadow-2xl flex flex-col gap-6">
+      
+      <!-- Modal Header -->
+      <div class="flex items-center justify-between pb-4 border-b border-zinc-800">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-primary/10 border border-primary/40 flex items-center justify-center text-primary">
+            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+              <path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+            </svg>
+          </div>
+          <div>
+            <h3 class="font-barlow text-xl font-black uppercase text-white tracking-wider">Supervision Radar Panel</h3>
+            <p class="text-xs text-text-secondary mt-0.5">Sistem Deteksi Pelanggaran Real-Time Siswa</p>
+          </div>
+        </div>
+        <button onclick="closeProctoringModal()" class="p-2 rounded-xl bg-zinc-850 hover:bg-zinc-800 text-text-muted hover:text-white transition-colors">
+          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+
+      <!-- Modal Body (Radar Simulation & Student Grid) -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        <!-- Radar Visualizer -->
+        <div class="lg:col-span-1 flex flex-col items-center justify-center bg-black/40 border border-zinc-800/80 rounded-2xl p-6 relative overflow-hidden h-64 lg:h-auto">
+          <!-- Background target lines -->
+          <div class="absolute inset-0 flex items-center justify-center">
+            <div class="w-48 h-48 border border-zinc-800/50 rounded-full flex items-center justify-center">
+              <div class="w-32 h-32 border border-zinc-800/50 rounded-full flex items-center justify-center">
+                <div class="w-16 h-16 border border-zinc-800/50 rounded-full"></div>
+              </div>
+            </div>
+            <!-- Crosshairs -->
+            <div class="absolute h-48 w-px bg-zinc-800/30"></div>
+            <div class="absolute w-48 h-px bg-zinc-800/30"></div>
+          </div>
+          
+          <!-- Radar Sweep -->
+          <div class="absolute bottom-1/2 right-1/2 w-24 h-24 bg-gradient-to-tr from-transparent to-primary/20 rounded-tl-full origin-bottom-right radar-sweep-element pointer-events-none"></div>
+
+          <!-- Radar Targets Blips -->
+          <div class="absolute top-1/3 left-1/3 w-2 h-2 bg-[#00CC66] rounded-full animate-pulse shadow-glow-green"></div>
+          <div class="absolute top-1/2 right-1/4 w-2 h-2 bg-[#00CC66] rounded-full animate-pulse shadow-glow-green"></div>
+          <div class="absolute bottom-1/3 left-1/2 w-2 h-2 bg-primary rounded-full animate-pulse shadow-glow-red"></div>
+          
+          <div class="z-10 text-center mt-auto">
+            <p class="text-[10px] font-bold uppercase tracking-widest text-text-muted">Status Frekuensi Sync</p>
+            <p class="text-sm font-black text-white font-barlow tracking-wider mt-1">WS: 2.4 GHz • ACTIVE</p>
+          </div>
+        </div>
+
+        <!-- Real-Time Student Activity Monitoring List -->
+        <div class="lg:col-span-2 space-y-4">
+          <div class="flex items-center justify-between">
+            <h4 class="text-xs font-bold uppercase tracking-widest text-text-secondary">Siswa Ujian Aktif</h4>
+            <span class="text-[10px] font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-lg border border-primary/20">1 Peringatan Aktif</span>
+          </div>
+
+          <div class="overflow-x-auto rounded-xl border border-zinc-800 bg-black/25">
+            <table class="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr class="border-b border-zinc-800 bg-zinc-900/50 text-[10px] uppercase font-bold tracking-wider text-text-muted">
+                  <th class="p-3">Nama Siswa</th>
+                  <th class="p-3">Mata Pelajaran</th>
+                  <th class="p-3">Status Layar</th>
+                  <th class="p-3 text-center">Tindakan</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-zinc-850">
+                <!-- Row 1 -->
+                <tr class="hover:bg-zinc-850/40 transition-colors">
+                  <td class="p-3 flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full bg-online"></span>
+                    <span class="font-bold text-white">Budi Santoso</span>
+                  </td>
+                  <td class="p-3 text-text-secondary">Kimia Analisis</td>
+                  <td class="p-3"><span class="px-2 py-0.5 rounded bg-zinc-800 text-text-secondary border border-zinc-700/40 text-[10px]">Fokus Aktif</span></td>
+                  <td class="p-3 text-center">
+                    <button class="px-2.5 py-1 bg-zinc-800 hover:bg-zinc-700 text-text-secondary hover:text-white rounded-lg transition-colors font-bold text-[10px]">Pantau</button>
+                  </td>
+                </tr>
+                <!-- Row 2 -->
+                <tr class="hover:bg-zinc-850/40 transition-colors">
+                  <td class="p-3 flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full bg-online"></span>
+                    <span class="font-bold text-white">Siti Aminah</span>
+                  </td>
+                  <td class="p-3 text-text-secondary">Fisika Mekanika</td>
+                  <td class="p-3"><span class="px-2 py-0.5 rounded bg-zinc-800 text-text-secondary border border-zinc-700/40 text-[10px]">Fokus Aktif</span></td>
+                  <td class="p-3 text-center">
+                    <button class="px-2.5 py-1 bg-zinc-800 hover:bg-zinc-700 text-text-secondary hover:text-white rounded-lg transition-colors font-bold text-[10px]">Pantau</button>
+                  </td>
+                </tr>
+                <!-- Row 3 (Alert) -->
+                <tr class="hover:bg-zinc-850/40 transition-colors bg-primary/5">
+                  <td class="p-3 flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full bg-primary animate-pulse"></span>
+                    <span class="font-bold text-primary">Andi Wijaya</span>
+                  </td>
+                  <td class="p-3 text-text-secondary">Sastra Indonesia</td>
+                  <td class="p-3"><span class="px-2 py-0.5 rounded bg-primary/20 text-primary border border-primary/30 text-[10px] font-bold">Keluar Layar (1)</span></td>
+                  <td class="p-3 text-center flex justify-center gap-1.5">
+                    <button onclick="alert('Peringatan dikirim!')" class="px-2.5 py-1 bg-primary hover:bg-primary-dark text-white rounded-lg transition-colors font-bold text-[10px] shadow-glow-red">Kirim Warn</button>
+                    <button onclick="resetStudentSession('Andi Wijaya')" class="px-2.5 py-1 bg-zinc-800 hover:bg-zinc-700 text-text-secondary hover:text-white rounded-lg transition-colors font-bold text-[10px]">Reset</button>
+                  </td>
+                </tr>
+                <!-- Row 4 -->
+                <tr class="hover:bg-zinc-850/40 transition-colors">
+                  <td class="p-3 flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full bg-online"></span>
+                    <span class="font-bold text-white">Rian Hidayat</span>
+                  </td>
+                  <td class="p-3 text-text-secondary">Biologi Sel</td>
+                  <td class="p-3"><span class="px-2 py-0.5 rounded bg-zinc-800 text-text-secondary border border-zinc-700/40 text-[10px]">Fokus Aktif</span></td>
+                  <td class="p-3 text-center">
+                    <button class="px-2.5 py-1 bg-zinc-800 hover:bg-zinc-700 text-text-secondary hover:text-white rounded-lg transition-colors font-bold text-[10px]">Pantau</button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="flex items-center justify-between pt-4 border-t border-zinc-800 text-xs text-text-muted">
+        <span>WebSocket Server: <strong>ws://localhost:5000</strong></span>
+        <button onclick="closeProctoringModal()" class="px-5 py-2 bg-zinc-850 hover:bg-zinc-800 text-white font-bold rounded-xl transition-all">Tutup Radar</button>
+      </div>
+
+    </div>
+  </div>
+
+
+  <!-- 2. Create New Item (Exam/Student/Teacher) Modal -->
+  <div id="create-modal" class="hidden fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4">
+    <!-- Backdrop -->
+    <div class="fixed inset-0 bg-black/85 backdrop-blur-md" onclick="toggleCreateModal(false)"></div>
+    
+    <!-- Modal Content -->
+    <div class="relative bg-bg-surface border border-zinc-800 rounded-2xl max-w-md w-full p-6 overflow-hidden shadow-2xl flex flex-col gap-6">
+      
+      <!-- Modal Header -->
+      <div class="flex items-center justify-between pb-4 border-b border-zinc-800">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-accent-gold/10 border border-accent-gold/40 flex items-center justify-center text-accent-gold shadow-glow-gold">
+            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+            </svg>
+          </div>
+          <div>
+            <h3 class="font-barlow text-xl font-black uppercase text-white tracking-wider">Tambah Data Baru</h3>
+            <p class="text-xs text-text-secondary mt-0.5">Entri data ke Database EXAM PONCOL</p>
+          </div>
+        </div>
+        <button onclick="toggleCreateModal(false)" class="p-2 rounded-xl bg-zinc-850 hover:bg-zinc-800 text-text-muted hover:text-white transition-colors">
+          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+
+      <!-- Modal Body (Form) -->
+      <form id="create-form" class="space-y-4" onsubmit="handleCreateFormSubmit(event)">
+        <div>
+          <label class="block text-xs font-bold uppercase tracking-wider text-text-secondary mb-1.5">Tipe Entri</label>
+          <select id="create-type" class="w-full px-3 py-2.5 rounded-xl bg-zinc-900 border border-zinc-800 text-white text-xs focus:outline-none focus:border-primary transition-all">
+            <option value="ujian">Ujian Baru</option>
+            <option value="siswa">Siswa Baru</option>
+            <option value="guru">Guru Baru</option>
+          </select>
+        </div>
+
+        <div>
+          <label id="input-name-label" class="block text-xs font-bold uppercase tracking-wider text-text-secondary mb-1.5">Nama Ujian / Mata Pelajaran</label>
+          <input type="text" id="create-name" required placeholder="Contoh: Kimia Analitis Dasar" 
+            class="w-full px-3 py-2.5 rounded-xl bg-zinc-900 border border-zinc-800 text-white placeholder-text-muted text-xs focus:outline-none focus:border-primary transition-all">
+        </div>
+
+        <div id="meta-container">
+          <label id="input-meta-label" class="block text-xs font-bold uppercase tracking-wider text-text-secondary mb-1.5">Durasi (Menit)</label>
+          <input type="number" id="create-meta" required value="90"
+            class="w-full px-3 py-2.5 rounded-xl bg-zinc-900 border border-zinc-800 text-white placeholder-text-muted text-xs focus:outline-none focus:border-primary transition-all">
+        </div>
+
+        <button type="submit" class="w-full py-3 bg-gradient-to-r from-primary to-primary-dark text-white rounded-xl font-bold uppercase tracking-wider text-xs shadow-glow-red hover:scale-[1.02] transform transition-all duration-300 mt-2">
+          Simpan Entri ke Database
+        </button>
+      </form>
+
+    </div>
+  </div>
+
+
+  <!-- 3. Configuration & Settings Modal -->
+  <div id="settings-modal" class="hidden fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4">
+    <!-- Backdrop -->
+    <div class="fixed inset-0 bg-black/85 backdrop-blur-md" onclick="toggleSettingsModal(false)"></div>
+    
+    <!-- Modal Content -->
+    <div class="relative bg-bg-surface border border-zinc-800 rounded-2xl max-w-md w-full p-6 overflow-hidden shadow-2xl flex flex-col gap-6">
+      
+      <!-- Modal Header -->
+      <div class="flex items-center justify-between pb-4 border-b border-zinc-800">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-primary/10 border border-primary/40 flex items-center justify-center text-primary shadow-glow-red">
+            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+              <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+          </div>
+          <div>
+            <h3 class="font-barlow text-xl font-black uppercase text-white tracking-wider">Konfigurasi Pengukuran</h3>
+            <p class="text-xs text-text-secondary mt-0.5">Pengaturan Batasan Keamanan & WebSocket</p>
+          </div>
+        </div>
+        <button onclick="toggleSettingsModal(false)" class="p-2 rounded-xl bg-zinc-850 hover:bg-zinc-800 text-text-muted hover:text-white transition-colors">
+          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+
+      <!-- Settings Form -->
+      <div class="space-y-4 text-xs">
+        <div>
+          <label class="block font-bold uppercase tracking-wider text-text-secondary mb-1">Interval Sinkronisasi (Detik)</label>
+          <input type="number" value="30" class="w-full px-3 py-2.5 rounded-xl bg-zinc-900 border border-zinc-800 text-white focus:outline-none focus:border-primary transition-all">
+          <p class="text-[10px] text-text-muted mt-1">Interval fallback jika WebSocket terputus.</p>
+        </div>
+
+        <div>
+          <label class="block font-bold uppercase tracking-wider text-text-secondary mb-1">Maksimum Keluar Layar</label>
+          <input type="number" value="3" class="w-full px-3 py-2.5 rounded-xl bg-zinc-900 border border-zinc-800 text-white focus:outline-none focus:border-primary transition-all">
+          <p class="text-[10px] text-text-muted mt-1">Siswa otomatis terkunci jika melampaui batas ini.</p>
+        </div>
+
+        <div class="flex items-center justify-between p-3 bg-black/20 rounded-xl border border-zinc-850">
+          <div>
+            <h4 class="font-bold text-white">WebSocket Heartbeat</h4>
+            <p class="text-[10px] text-text-muted mt-0.5">Kirim ping secara berkala untuk menjaga koneksi</p>
+          </div>
+          <label class="relative inline-flex items-center cursor-pointer">
+            <input type="checkbox" checked class="sr-only peer">
+            <div class="w-9 h-5 bg-zinc-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-zinc-400 after:border-zinc-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary peer-checked:after:bg-white"></div>
+          </label>
+        </div>
+
+        <button onclick="toggleSettingsModal(false); alert('Konfigurasi berhasil disimpan!')" class="w-full py-3 bg-gradient-to-r from-primary to-primary-dark text-white rounded-xl font-bold uppercase tracking-wider text-xs shadow-glow-red hover:scale-[1.02] transform transition-all duration-300 mt-2">
+          Terapkan Pengaturan
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+
+  <!-- ======================================================= -->
+  <!-- ==================== CORE SCRIPT ====================== -->
+  <!-- ======================================================= -->
+  <script>
+    // Global Data Mock state
+    let totalGuruCount = 3;
+    let totalSiswaCount = 9;
+    let totalUjianCount = 5;
+    let activeUjianCount = 4;
+
+    // Search target data
+    const searchDataPool = [
+      { name: "Budi Santoso", type: "Siswa", desc: "Kelas XII IPA 1" },
+      { name: "Siti Aminah", type: "Siswa", desc: "Kelas XII IPA 2" },
+      { name: "Andi Wijaya", type: "Siswa", desc: "Kelas XII IPS 1" },
+      { name: "Dr. H. Bambang", type: "Guru", desc: "Fisika & Matematika" },
+      { name: "Kimia Analisis", type: "Ujian", desc: "Aktif • Guru: Bu Retno" },
+      { name: "Matematika Dasar", type: "Ujian", desc: "Selesai • Guru: Pak Bambang" },
+      { name: "Fisika Quantum", type: "Ujian", desc: "Aktif • Guru: Pak Bambang" },
+      { name: "Biologi Sel", type: "Ujian", desc: "Aktif • Guru: Bu Lastri" },
+    ];
+
+    // Notification dropdown toggle
+    function toggleNotificationDropdown() {
+      const drop = document.getElementById('notifications-dropdown');
+      drop.classList.toggle('hidden');
+    }
+
+    // Proctoring Modal Control
+    function openProctoringModal() {
+      document.getElementById('proctoring-modal').classList.remove('hidden');
+      document.body.classList.add('overflow-hidden');
+    }
+    function closeProctoringModal() {
+      document.getElementById('proctoring-modal').classList.add('hidden');
+      document.body.classList.remove('overflow-hidden');
+    }
+
+    // Reset Student session (Proctor Action)
+    function resetStudentSession(studentName) {
+      if (confirm(`Apakah Anda yakin ingin mereset sesi ujian ${studentName}? Hal ini akan mengizinkan siswa masuk kembali ke ujian.`)) {
+        alert(`Sesi ${studentName} berhasil direset. Event 'student-reset' terkirim via WebSocket.`);
+        // Simulate event in timeline
+        injectTimelineNode("System Reset", `Sesi ujian siswa <span class="text-primary font-bold">${studentName}</span> berhasil direset oleh Admin.`, "Baru Saja");
+        closeProctoringModal();
+      }
+    }
+
+    // Global Search Handlers
+    function handleGlobalSearch(query) {
+      const drop = document.getElementById('search-results-dropdown');
+      const list = document.getElementById('search-results-list');
+      
+      if (!query.trim()) {
+        drop.classList.add('hidden');
+        return;
+      }
+
+      const filtered = searchDataPool.filter(item => 
+        item.name.toLowerCase().includes(query.toLowerCase()) || 
+        item.type.toLowerCase().includes(query.toLowerCase())
+      );
+
+      list.innerHTML = "";
+      if (filtered.length === 0) {
+        list.innerHTML = `<div class="text-xs text-text-muted p-2">Tidak ada data ditemukan.</div>`;
+      } else {
+        filtered.forEach(item => {
+          const typeColor = item.type === "Ujian" ? "text-accent-gold" : item.type === "Siswa" ? "text-primary" : "text-white";
+          list.innerHTML += `
+            <div class="p-2 hover:bg-zinc-800/80 rounded-lg cursor-pointer transition-colors" onclick="selectSearchItem('${item.name}')">
+              <div class="flex items-center justify-between text-xs">
+                <span class="font-bold text-white">${item.name}</span>
+                <span class="text-[9px] font-black uppercase tracking-wider ${typeColor}">${item.type}</span>
+              </div>
+              <div class="text-[10px] text-text-muted mt-0.5">${item.desc}</div>
+            </div>
+          `;
+        });
+      }
+      drop.classList.remove('hidden');
+    }
+
+    function selectSearchItem(name) {
+      alert(`Membuka detail untuk: ${name}`);
+      document.getElementById('global-search-input').value = "";
+      document.getElementById('search-results-dropdown').classList.add('hidden');
+    }
+
+    // Keyboard Shortcuts
+    document.addEventListener('keydown', (e) => {
+      // ⌘K or Ctrl+K focus search
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        document.getElementById('global-search-input').focus();
+      }
+      // Esc closes modals
+      if (e.key === 'Escape') {
+        closeProctoringModal();
+        toggleCreateModal(false);
+        toggleSettingsModal(false);
+        document.getElementById('notifications-dropdown').classList.add('hidden');
+        document.getElementById('search-results-dropdown').classList.add('hidden');
+      }
+    });
+
+    // Toggle Create Modal
+    function toggleCreateModal(show) {
+      const modal = document.getElementById('create-modal');
+      const select = document.getElementById('create-type');
+      if (show) {
+        modal.classList.remove('hidden');
+        document.body.classList.add('overflow-hidden');
+        updateFormLabels();
+      } else {
+        modal.classList.add('hidden');
+        document.body.classList.remove('overflow-hidden');
+      }
+    }
+
+    // Handle Form select toggle
+    document.getElementById('create-type').addEventListener('change', updateFormLabels);
+
+    function updateFormLabels() {
+      const type = document.getElementById('create-type').value;
+      const nameLabel = document.getElementById('input-name-label');
+      const nameInput = document.getElementById('create-name');
+      const metaLabel = document.getElementById('input-meta-label');
+      const metaInput = document.getElementById('create-meta');
+      
+      if (type === 'ujian') {
+        nameLabel.innerText = "Nama Ujian / Mata Pelajaran";
+        nameInput.placeholder = "Contoh: Kimia Analitis Dasar";
+        metaLabel.innerText = "Durasi (Menit)";
+        metaInput.type = "number";
+        metaInput.value = "90";
+      } else if (type === 'siswa') {
+        nameLabel.innerText = "Nama Lengkap Siswa";
+        nameInput.placeholder = "Contoh: Muhammad Ali";
+        metaLabel.innerText = "Kelas & Jurusan";
+        metaInput.type = "text";
+        metaInput.value = "XII IPA 3";
+      } else if (type === 'guru') {
+        nameLabel.innerText = "Nama Guru / Pengajar";
+        nameInput.placeholder = "Contoh: Dr. H. Bambang, M.Pd.";
+        metaLabel.innerText = "Spesialisasi Bidang";
+        metaInput.type = "text";
+        metaInput.value = "Fisika Quantum";
+      }
+    }
+
+    // Handle create form submit
+    function handleCreateFormSubmit(e) {
+      e.preventDefault();
+      const type = document.getElementById('create-type').value;
+      const name = document.getElementById('create-name').value;
+      const meta = document.getElementById('create-meta').value;
+
+      alert(`Berhasil menambahkan data ${type}: ${name} (${meta}) ke database!`);
+
+      // Update counters & timeline
+      if (type === 'ujian') {
+        totalUjianCount++;
+        injectTimelineNode("Exam Created", `Ujian Baru Dibuat: <span class="text-accent-gold font-bold">${name}</span> oleh Admin Utama.`, "Baru saja");
+      } else if (type === 'siswa') {
+        totalSiswaCount++;
+        injectTimelineNode("Student Enrolled", `Siswa baru terdaftar: <span class="text-primary font-bold">${name}</span> di kelas ${meta}.`, "Baru saja");
+      } else if (type === 'guru') {
+        totalGuruCount++;
+        injectTimelineNode("Teacher Assigned", `Guru baru didaftarkan: <span class="text-white font-bold">${name}</span> (${meta}).`, "Baru saja");
+      }
+
+      // Close modal
+      toggleCreateModal(false);
+    }
+
+    // Toggle Settings Modal
+    function toggleSettingsModal(show) {
+      const modal = document.getElementById('settings-modal');
+      if (show) {
+        modal.classList.remove('hidden');
+        document.body.classList.add('overflow-hidden');
+      } else {
+        modal.classList.add('hidden');
+        document.body.classList.remove('overflow-hidden');
+      }
+    }
+
+    // Inject New Timeline Node helper
+    function injectTimelineNode(title, content, time) {
+      const container = document.getElementById('timeline-container');
+      const isRedNode = title === "System Reset" || title === "Student Enrolled";
+      const nodeColor = isRedNode ? 'bg-primary shadow-glow-red' : 'bg-accent-gold shadow-glow-gold';
+      
+      const nodeHtml = `
+        <div class="relative flex flex-col sm:flex-row sm:items-start justify-between gap-2 group transition-all duration-300">
+          <div class="absolute -left-5 top-1 w-3 h-3 rounded-full ${nodeColor} border-2 border-bg-primary group-hover:scale-125 transition-transform duration-300"></div>
+          <div class="flex-1">
+            <p class="text-sm font-semibold text-white group-hover:text-primary transition-colors">${content}</p>
+            <p class="text-xs text-text-muted mt-1">Tipe Aksi: ${title}</p>
+          </div>
+          <div class="text-right shrink-0 mt-0.5 sm:mt-0">
+            <span class="text-[11px] font-medium text-text-muted tracking-wide">${time}</span>
+          </div>
+        </div>
+      `;
+      // Insert at the top of timeline
+      container.insertAdjacentHTML('afterbegin', nodeHtml);
+    }
+
+    // Simulate real-time websocket updates in background
+    function simulateNewEvent() {
+      const randomNames = ["Dimas Pratama", "Lutfi Hakim", "Dewi Lestari", "Riko Setiawan"];
+      const randomClass = ["XII IPA 4", "XII IPS 2", "XII IPS 3"];
+      const chosenName = randomNames[Math.floor(Math.random() * randomNames.length)];
+      const chosenClass = randomClass[Math.floor(Math.random() * randomClass.length)];
+
+      const events = [
+        () => {
+          injectTimelineNode("Student Enrolled", `Siswa baru terdaftar: <span class="text-primary font-bold">${chosenName}</span>`, "Baru Saja");
+        },
+        () => {
+          injectTimelineNode("Exam Started", `Siswa <span class="text-primary font-bold">${chosenName}</span> memulai Ujian Kimia Analisis.`, "Baru Saja");
+        },
+        () => {
+          injectTimelineNode("Focus Alert", `Siswa <span class="text-primary font-bold">${chosenName}</span> terdeteksi keluar dari tab browser!`, "Baru Saja");
+        }
+      ];
+
+      events[Math.floor(Math.random() * events.length)]();
+    }
+
+    // System stats live ticker simulation
+    function refreshSystemStats() {
+      const cpuVal = Math.floor(Math.random() * 30) + 10; // 10% to 40%
+      const dbLatency = Math.floor(Math.random() * 15) + 5; // 5ms to 20ms
+      const traffic = Math.floor(Math.random() * 50) + 20; // 20 to 70 req/s
+
+      document.getElementById('cpu-load-text').innerText = `${cpuVal}%`;
+      document.getElementById('cpu-load-bar').style.width = `${cpuVal}%`;
+
+      document.getElementById('db-latency-text').innerText = `${dbLatency}ms`;
+      document.getElementById('db-latency-bar').style.width = `${(dbLatency / 30) * 100}%`;
+
+      document.getElementById('traffic-load-text').innerText = `${traffic} req/s`;
+      document.getElementById('traffic-load-bar').style.width = `${(traffic / 100) * 100}%`;
+    }
+
+    // Real-Time sparkline wave animation loop
+    let angle = 0;
+    function animateLiveSparkline() {
+      angle += 0.05;
+      const points = [];
+      for (let x = 0; x <= 100; x += 5) {
+        // Calculate sine wave offset
+        const y = 15 + Math.sin(angle + (x / 20)) * 8;
+        points.push(`${x} ${y}`);
+      }
+      
+      const pathData = `M 0 15 ` + points.map((p, i) => `L ${p}`).join(' ');
+      const fillData = pathData + ` L 100 30 L 0 30 Z`;
+      
+      document.getElementById('live-sparkline-path').setAttribute('d', pathData);
+      document.getElementById('live-sparkline-fill').setAttribute('d', fillData);
+      
+      requestAnimationFrame(animateLiveSparkline);
+    }
+
+    // Initialize scripts
+    window.addEventListener('load', () => {
+      // Start sparkline animation
+      animateLiveSparkline();
+      // Tick system stats every 3 seconds
+      setInterval(refreshSystemStats, 3000);
+    });
+  </script>
+</body>
+</html>

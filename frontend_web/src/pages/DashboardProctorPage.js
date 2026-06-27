@@ -82,8 +82,8 @@ export class DashboardProctorPage extends BasePage {
 
             // Join room WebSocket sesuai room proktor
             const user = authService.getCurrentUser();
-            if (user?.room) {
-                this._socket.emit('join-room', { roomName: user.room });
+            if (user?.room || user?.roomId) {
+                this._socket.emit('join-room', { roomName: user.room, roomId: user.roomId });
             }
 
             // ── PIN alert dari siswa yang terblokir ───────────────────────────
@@ -94,10 +94,25 @@ export class DashboardProctorPage extends BasePage {
                 if (p) { p.isBlocked = true; this._rerenderTable(); }
             });
 
-            // ── Status siswa berubah (online/offline) ─────────────────────────
-            this._socket.on('student-status-changed', ({ studentId, status }) => {
+            // ── Status siswa berubah (online/offline/progress) ────────────────
+            this._socket.on('student-status-changed', ({ studentId, status, progress, isBlocked, counterPelanggaran }) => {
                 const p = this._participants.find(x => x.userId === studentId);
-                if (p) { p.status = status; this._rerenderTable(); }
+                if (p) {
+                    if (status !== undefined) p.status = status;
+                    if (progress !== undefined) p.progress = progress;
+                    if (isBlocked !== undefined) p.isBlocked = isBlocked;
+                    if (counterPelanggaran !== undefined) p.counterPelanggaran = counterPelanggaran;
+                    this._rerenderTable();
+                }
+            });
+
+            // ── Status ujian berubah / token direset ────────────────────────
+            this._socket.on('exam-status-changed', (data) => {
+                if (this.activeTab === 'token') {
+                    this._tabToken();
+                } else if (this.activeTab === 'monitoring' && this._examId && Number(data?.examId) === this._examId) {
+                    this._renderTab();
+                }
             });
         } catch (_) {
             // Socket.io tidak tersedia — fallback ke polling
@@ -334,9 +349,9 @@ export class DashboardProctorPage extends BasePage {
                 { text: 'Reset', variant: 'primary', onClick: async (close) => {
                     try {
                         const userId = p.userId.replace('stu_', '');
-                        await api.patch(`/admin/users/${userId}`, { verified: true });
+                        await api.post(`/proctor/exam/${this._examId}/reset/${userId}`);
                         close(); this._fetchParticipants();
-                    } catch (_) { alert('Gagal reset sesi.'); close(); }
+                    } catch (_) { showToast('Gagal reset sesi.', 'error'); close(); }
                 }},
             ],
         });
@@ -353,7 +368,7 @@ export class DashboardProctorPage extends BasePage {
                     try {
                         await api.post(`/admin/exams/${exam.id}/complete`);
                         close(); this._renderTab();
-                    } catch (_) { alert('Gagal menutup ujian.'); close(); }
+                    } catch (_) { showToast('Gagal menutup ujian.', 'error'); close(); }
                 }},
             ],
         });
@@ -361,24 +376,24 @@ export class DashboardProctorPage extends BasePage {
 
     // ── Tab Token ──────────────────────────────────────────────────────────────
     async _tabToken() {
-        this.contentArea.innerHTML = '';
         const user = authService.getCurrentUser();
-        this.contentArea.innerHTML = `
-            <h1 class="font-barlow font-extrabold text-page-title text-text-primary mb-xs">TOKEN UJIAN</h1>
-            <p class="font-inter text-text-secondary text-sm mb-xl">
-                Token yang dimasukkan siswa sebelum mengerjakan ujian di <span class="text-accent-gold font-bold">${user?.room || '(ruang belum diset)'}</span>.
-            </p>`;
-
-        const wrap = createElement('div', '');
-        this.contentArea.appendChild(wrap);
+        
+        let wrap = this.contentArea.querySelector('#token-list-wrap');
+        if (!wrap) {
+            this.contentArea.innerHTML = `
+                <h1 class="font-barlow font-extrabold text-page-title text-text-primary mb-xs">TOKEN UJIAN</h1>
+                <p class="font-inter text-text-secondary text-sm mb-xl">
+                    Token yang dimasukkan siswa sebelum mengerjakan ujian di <span class="text-accent-gold font-bold">${user?.room || '(ruang belum diset)'}</span>.
+                </p>
+                <div id="token-list-wrap"></div>`;
+            wrap = this.contentArea.querySelector('#token-list-wrap');
+        }
+        
+        wrap.innerHTML = '';
         wrap.appendChild(this._loading());
 
         try {
-            const [tokensRes, examsRes] = await Promise.all([
-                api.get('/admin/exam-tokens'),
-                api.get('/proctor/my-exams'),
-            ]);
-            const tokens  = tokensRes.data?.data ?? [];
+            const examsRes = await api.get('/proctor/my-exams');
             const exams   = examsRes.data?.data ?? [];
             wrap.innerHTML = '';
 
@@ -388,7 +403,6 @@ export class DashboardProctorPage extends BasePage {
             }
 
             exams.forEach(exam => {
-                const examTokens = tokens.filter(t => t.examId === exam.id);
                 const card = createElement('div', 'bg-bg-surface-light rounded-card p-lg mb-md');
                 card.innerHTML = `
                     <div class="flex items-center justify-between mb-md">
@@ -398,23 +412,21 @@ export class DashboardProctorPage extends BasePage {
                         </div>
                     </div>`;
 
-                if (!examTokens.length) {
+                if (!exam.token) {
                     const noToken = createElement('p', 'text-xs text-text-muted font-inter italic');
-                    noToken.textContent = 'Belum ada token ujian. Minta Admin untuk membuat.';
+                    noToken.textContent = 'Belum ada token ujian.';
                     card.appendChild(noToken);
                 } else {
-                    examTokens.forEach(t => {
-                        const row = createElement('div', 'flex items-center justify-between bg-bg-primary rounded-input px-lg py-md mb-sm');
-                        row.innerHTML = `
-                            <span class="font-mono font-extrabold text-2xl text-accent-gold tracking-widest">${t.token}</span>
-                            <button class="copy-btn material-icons text-text-secondary hover:text-text-primary cursor-pointer" data-token="${t.token}">content_copy</button>`;
-                        row.querySelector('.copy-btn').onclick = (e) => {
-                            navigator.clipboard?.writeText(e.currentTarget.dataset.token);
-                            e.currentTarget.textContent = 'check';
-                            setTimeout(() => e.currentTarget.textContent = 'content_copy', 2000);
-                        };
-                        card.appendChild(row);
-                    });
+                    const row = createElement('div', 'flex items-center justify-between bg-bg-primary rounded-input px-lg py-md mb-sm');
+                    row.innerHTML = `
+                        <span class="font-mono font-extrabold text-2xl text-accent-gold tracking-widest">${exam.token}</span>
+                        <button class="copy-btn material-icons text-text-secondary hover:text-text-primary cursor-pointer" data-token="${exam.token}">content_copy</button>`;
+                    row.querySelector('.copy-btn').onclick = (e) => {
+                        navigator.clipboard?.writeText(e.currentTarget.dataset.token);
+                        e.currentTarget.textContent = 'check';
+                        setTimeout(() => e.currentTarget.textContent = 'content_copy', 2000);
+                    };
+                    card.appendChild(row);
                 }
                 wrap.appendChild(card);
             });

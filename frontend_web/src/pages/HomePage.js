@@ -157,6 +157,43 @@ export class HomePage extends BasePage {
 
         // Load ujian dari server
         this.loadExams();
+        this._connectSocket();
+    }
+
+    _connectSocket() {
+        try {
+            if (typeof io === 'undefined') return;
+            const token = authService.getToken();
+            const BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api').replace('/api', '');
+            this._socket = io(BASE_URL, { auth: { token } });
+
+            const user = authService.getCurrentUser();
+            if (user?.room || user?.roomId) {
+                this._socket.emit('join-room', { roomName: user.room, roomId: user.roomId });
+            }
+
+            this._socket.on('connect', () => {
+                this.refreshSessionStatus();
+            });
+
+            this._socket.on('disconnect', () => {
+                this.refreshSessionStatus();
+            });
+
+            // Real-time exam status updates
+            this._socket.on('exam-status-changed', () => {
+                this.loadExams();
+            });
+
+            // Handle when student gets reset
+            this._socket.on('student-reset', ({ studentId }) => {
+                if (studentId === `stu_${user?.id}`) {
+                    this.loadExams();
+                }
+            });
+        } catch (_) {
+            // Silently fail and fallback to manual refresh
+        }
     }
 
     async loadExams() {
@@ -245,8 +282,13 @@ export class HomePage extends BasePage {
         if (!this.sessionStatusBadge) return;
         const { online } = getConnectionState();
         let status = 'active';
-        if (!online) status = 'disconnected';
-        else if (!this.compatibility?.supported) status = 'connecting';
+        if (!online) {
+            status = 'disconnected';
+        } else if (this._socket && !this._socket.connected) {
+            status = 'connecting';
+        } else if (!this.compatibility?.supported) {
+            status = 'connecting';
+        }
         this.sessionStatusBadge.innerHTML = statusPill(status);
     }
 
@@ -261,5 +303,9 @@ export class HomePage extends BasePage {
         clearTimeout(this._connectTimeout);
         this.unsubscribeConnection?.();
         this.statusHeaderDestroy?.();
+        if (this._socket) {
+            this._socket.disconnect();
+            this._socket = null;
+        }
     }
 }

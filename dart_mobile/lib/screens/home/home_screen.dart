@@ -53,6 +53,10 @@ class HomeScreenState extends State<HomeScreen> {
     });
 
     try {
+      // Ambil profil siswa dari server
+      final studentMap = await AuthRepository.me();
+      final student = Student.fromJson(studentMap);
+
       // Ambil jadwal dari server
       final schedules = await ExamScheduleRepository.fetchToday();
       // Ambil status ujian yang sudah selesai
@@ -60,6 +64,7 @@ class HomeScreenState extends State<HomeScreen> {
 
       if (!mounted) return;
       setState(() {
+        _student = student;
         _todaySchedules = schedules;
         _completedIds = ids;
         _isLoading = false;
@@ -107,8 +112,7 @@ class HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     // Gunakan student dari state jika ada, fallback ke placeholder
     final student = _student ??
-        Student(
-          id: '',
+        const Student(
           name: 'Siswa',
           nisn: '-',
           classLabel: '-',

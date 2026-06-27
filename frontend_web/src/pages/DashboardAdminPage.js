@@ -7,8 +7,12 @@ import { createButton } from '../components/Button.js';
 import { createModal } from '../components/Modal.js';
 import { authService } from '../services/auth.js';
 import { api } from '../services/api.js';
+import { ClassMultiSelect } from '../components/ClassMultiSelect.js';
 
 const BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
+
+// ── Konstanta jurusan resmi (dipakai di form kelas & import siswa) ─────────────
+const JURUSAN_LIST = ['RPL', 'DKV', 'TKRO', 'AKL', 'BP', 'TKJ'];
 
 const MENU_ITEMS = [
     { id: 'overview',      icon: 'dashboard',    label: 'Overview',       path: '/admin' },
@@ -16,9 +20,10 @@ const MENU_ITEMS = [
     { id: 'siswa',         icon: 'groups',        label: 'Kelola Siswa',   path: '/admin?tab=siswa' },
     { id: 'mapel',         icon: 'menu_book',     label: 'Mata Pelajaran', path: '/admin?tab=mapel' },
     { id: 'ujian',         icon: 'fact_check',    label: 'Kelola Ujian',   path: '/admin?tab=ujian' },
+    { id: 'kelas',         icon: 'class',         label: 'Kelola Kelas',   path: '/admin?tab=kelas' },
     { id: 'proktor',       icon: 'security',      label: 'Kelola Proktor', path: '/admin?tab=proktor' },
+    { id: 'ruangan',       icon: 'meeting_room',  label: 'Kelola Ruangan', path: '/admin?tab=ruangan' },
     { id: 'token-sesi',    icon: 'key',           label: 'Token Sesi',     path: '/admin?tab=token-sesi' },
-    { id: 'token-ujian',   icon: 'vpn_key',       label: 'Token Ujian',    path: '/admin?tab=token-ujian' },
 ];
 
 export class DashboardAdminPage extends BasePage {
@@ -26,13 +31,42 @@ export class DashboardAdminPage extends BasePage {
         super();
         this.setTitle('Dashboard Admin');
         this.activeTab = new URLSearchParams(window.location.search).get('tab') || 'overview';
-        this._subjectsList = []; // cache mapel untuk dropdown
+        this._subjectsList = [];
+        this._socket = null;
+    }
+
+    mounted() {
+        this._connectSocket();
+    }
+
+    beforeUnmount() {
+        if (this._socket) { this._socket.disconnect(); this._socket = null; }
+    }
+
+    _connectSocket() {
+        try {
+            if (typeof io === 'undefined') return;
+            const token = authService.getToken();
+            const BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api').replace('/api', '');
+            this._socket = io(BASE_URL, { auth: { token } });
+
+            // Admin join room khusus admin
+            this._socket.emit('join-room', { roomName: 'admin' });
+
+            // Listen ke event auto-refresh dari backend
+            this._socket.on('admin-refresh', (data) => {
+                if (data.tab === this.activeTab || data.tab === 'all') {
+                    this._renderTab();
+                }
+            });
+        } catch (_) {
+            // Abaikan jika socket error (fallback ke manual refresh)
+        }
     }
 
     render() {
         this.container.className = 'min-h-screen bg-bg-primary flex';
         this.container.setAttribute('data-page', 'admin-dashboard');
-
         this.container.appendChild(createSidebar(this.activeTab, MENU_ITEMS, 'ADMIN SEKOLAH'));
 
         const main = createElement('div', 'flex-1 min-h-screen flex flex-col');
@@ -51,26 +85,29 @@ export class DashboardAdminPage extends BasePage {
     _renderTab() {
         this.contentArea.innerHTML = '';
         const map = {
-            guru:         () => this._tabGuru(),
-            siswa:        () => this._tabSiswa(),
-            mapel:        () => this._tabMapel(),
-            proktor:      () => this._tabProktor(),
-            ujian:        () => this._tabUjian(),
-            'token-sesi': () => this._tabTokenSesi(),
-            'token-ujian':() => this._tabTokenUjian(),
+            guru:          () => this._tabGuru(),
+            siswa:         () => this._tabSiswa(),
+            mapel:         () => this._tabMapel(),
+            proktor:       () => this._tabProktor(),
+            ujian:         () => this._tabUjian(),
+            kelas:         () => this._tabKelas(),
+            ruangan:       () => this._tabRuangan(),
+            'token-sesi':  () => this._tabTokenSesi(),
         };
         (map[this.activeTab] || (() => this._tabOverview()))();
     }
 
-    _header(title, subtitle, btnLabel, onBtn) {
+    _header(title, subtitle, btnLabel, onBtn, btn2Label, onBtn2) {
         const h = createElement('div', 'flex flex-wrap items-start justify-between gap-md mb-xl');
         h.innerHTML = `<div>
             <h1 class="font-barlow font-extrabold text-page-title text-text-primary mb-xs">${title}</h1>
             <p class="font-inter text-text-secondary text-sm">${subtitle}</p>
         </div>`;
-        if (btnLabel) {
-            const btn = createButton(btnLabel, { size: 'sm', icon: 'add_circle', className: 'w-auto', onClick: onBtn });
-            h.appendChild(btn);
+        if (btnLabel || btn2Label) {
+            const btnWrap = createElement('div', 'flex gap-sm');
+            if (btn2Label) btnWrap.appendChild(createButton(btn2Label, { size: 'sm', variant: 'secondary', icon: 'upload_file', className: 'w-auto', onClick: onBtn2 }));
+            if (btnLabel)  btnWrap.appendChild(createButton(btnLabel,  { size: 'sm', icon: 'add_circle',   className: 'w-auto', onClick: onBtn }));
+            h.appendChild(btnWrap);
         }
         return h;
     }
@@ -85,8 +122,7 @@ export class DashboardAdminPage extends BasePage {
     _error(msg, retry) {
         const d = createElement('div', 'py-xl text-center');
         d.innerHTML = `<p class="text-primary font-inter text-sm mb-md">${msg}</p>`;
-        const btn = createButton('Coba Lagi', { size: 'sm', icon: 'refresh', className: 'w-auto mx-auto', onClick: retry });
-        d.appendChild(btn);
+        d.appendChild(createButton('Coba Lagi', { size: 'sm', icon: 'refresh', className: 'w-auto mx-auto', onClick: retry }));
         return d;
     }
 
@@ -100,58 +136,43 @@ export class DashboardAdminPage extends BasePage {
         this.contentArea.appendChild(grid);
 
         try {
-            const [usersRes, examsRes] = await Promise.all([
-                api.get('/admin/users'),
-                api.get('/admin/exams'),
-            ]);
+            const [usersRes, examsRes] = await Promise.all([api.get('/admin/users'), api.get('/admin/exams')]);
             const users = usersRes.data?.data ?? [];
             const exams = examsRes.data?.data ?? [];
-            const teachers = users.filter(u => u.role === 'teacher');
-            const students = users.filter(u => u.role === 'student');
-
-            grid.appendChild(createStatCard({ icon: 'school',      label: 'Total Guru',   value: teachers.length,                            accent: 'gold' }));
-            grid.appendChild(createStatCard({ icon: 'groups',      label: 'Total Siswa',  value: students.length,                            accent: 'primary' }));
-            grid.appendChild(createStatCard({ icon: 'fact_check',  label: 'Total Ujian',  value: exams.length,                               accent: 'online' }));
-            grid.appendChild(createStatCard({ icon: 'check_circle',label: 'Ujian Aktif',  value: exams.filter(e => e.status === 'active').length, accent: 'muted' }));
+            grid.appendChild(createStatCard({ icon: 'school',       label: 'Total Guru',  value: users.filter(u => u.role === 'teacher').length, accent: 'gold' }));
+            grid.appendChild(createStatCard({ icon: 'groups',       label: 'Total Siswa', value: users.filter(u => u.role === 'student').length, accent: 'primary' }));
+            grid.appendChild(createStatCard({ icon: 'fact_check',   label: 'Total Ujian', value: exams.length, accent: 'online' }));
+            grid.appendChild(createStatCard({ icon: 'check_circle', label: 'Ujian Aktif', value: exams.filter(e => e.status === 'active').length, accent: 'muted' }));
         } catch (_) {
             grid.innerHTML = `<p class="text-text-muted font-inter text-sm col-span-4">Gagal memuat statistik.</p>`;
         }
     }
 
-    // ── Tab Guru (role=teacher) ────────────────────────────────────────────────
+    // ── Tab Guru ───────────────────────────────────────────────────────────────
 
     async _tabGuru() {
         this.contentArea.innerHTML = '';
-        this.contentArea.appendChild(this._header(
-            'KELOLA GURU', 'Tambah dan kelola akun guru.',
-            'TAMBAH GURU', () => this._modalUser(null, 'teacher')
-        ));
+        this.contentArea.appendChild(this._header('KELOLA GURU', 'Tambah dan kelola akun guru.', 'TAMBAH GURU', () => this._modalUser(null, 'teacher')));
         const wrap = createElement('div', '');
         this.contentArea.appendChild(wrap);
         wrap.appendChild(this._loading());
 
         try {
-            const [res, banksRes] = await Promise.all([
-                api.get('/admin/users?role=teacher'),
-                api.get('/admin/question-banks'),
-            ]);
+            const res = await api.get('/admin/users?role=teacher');
             const teachers = res.data?.data ?? [];
-            this._subjectsList = [...new Set((banksRes.data?.data ?? []).map(b => b.subject).filter(Boolean))].sort();
             wrap.innerHTML = '';
 
             const cols = [
-                { key: 'name',  label: 'Nama' },
-                { key: 'nisn',  label: 'NIP / NISN' },
-                { key: 'class', label: 'Kelas / Mapel' },
+                { key: 'name',     label: 'Nama' },
+                { key: 'nisn',     label: 'NIP / NISN' },
                 { key: 'verified', label: 'Status', render: r => statusPill(r.verified ? 'aktif' : 'nonaktif') },
-                { key: 'actions', label: 'Aksi', render: r => `
+                { key: 'actions',  label: 'Aksi', render: r => `
                     <div class="flex gap-sm" data-uid="${r.id}">
                         <button class="u-edit material-icons text-text-muted hover:text-online text-lg">edit</button>
                         <button class="u-del material-icons text-text-muted hover:text-primary text-lg">delete</button>
                     </div>` },
             ];
             wrap.appendChild(createTable(cols, teachers));
-
             wrap.querySelectorAll('[data-uid]').forEach(el => {
                 const u = teachers.find(t => t.id === Number(el.dataset.uid));
                 el.querySelector('.u-edit').onclick = () => this._modalUser(u, 'teacher');
@@ -163,13 +184,14 @@ export class DashboardAdminPage extends BasePage {
         }
     }
 
-    // ── Tab Siswa (role=student) ───────────────────────────────────────────────
+    // ── Tab Siswa ──────────────────────────────────────────────────────────────
 
     async _tabSiswa() {
         this.contentArea.innerHTML = '';
         this.contentArea.appendChild(this._header(
             'KELOLA SISWA', 'Tambah, edit, dan kelola akun siswa.',
-            'TAMBAH SISWA', () => this._modalUser(null, 'student')
+            'TAMBAH SISWA', () => this._modalUser(null, 'student'),
+            'IMPORT EXCEL',  () => this._modalImportSiswa()
         ));
         const wrap = createElement('div', '');
         this.contentArea.appendChild(wrap);
@@ -181,19 +203,18 @@ export class DashboardAdminPage extends BasePage {
             wrap.innerHTML = '';
 
             const cols = [
-                { key: 'name',  label: 'Nama Siswa' },
-                { key: 'nisn',  label: 'NISN' },
-                { key: 'class', label: 'Kelas' },
-                { key: 'room',  label: 'Ruang' },
+                { key: 'name',     label: 'Nama Siswa' },
+                { key: 'nisn',     label: 'NISN' },
+                { key: 'class',    label: 'Kelas' },
+                { key: 'room',     label: 'Ruang' },
                 { key: 'verified', label: 'Status', render: r => statusPill(r.verified ? 'aktif' : 'nonaktif') },
-                { key: 'actions', label: 'Aksi', render: r => `
+                { key: 'actions',  label: 'Aksi', render: r => `
                     <div class="flex gap-sm" data-uid="${r.id}">
                         <button class="u-edit material-icons text-text-muted hover:text-online text-lg">edit</button>
                         <button class="u-del material-icons text-text-muted hover:text-primary text-lg">delete</button>
                     </div>` },
             ];
             wrap.appendChild(createTable(cols, students));
-
             wrap.querySelectorAll('[data-uid]').forEach(el => {
                 const u = students.find(s => s.id === Number(el.dataset.uid));
                 el.querySelector('.u-edit').onclick = () => this._modalUser(u, 'student');
@@ -205,12 +226,148 @@ export class DashboardAdminPage extends BasePage {
         }
     }
 
+    // ── Modal Import Siswa Excel ───────────────────────────────────────────────
+
+    _modalImportSiswa() {
+        createModal({
+            title: 'Import Siswa via Excel',
+            bodyHtml: `
+                <div class="flex flex-col gap-md">
+                    <div class="p-md bg-bg-primary border border-gray-700 rounded-card">
+                        <p class="font-inter text-sm text-text-secondary mb-sm">
+                            Unduh template, isi data siswa, lalu upload kembali.
+                        </p>
+                        <button id="btn-dl-template"
+                            class="flex items-center gap-xs px-md py-sm bg-bg-surface border border-gray-600 rounded-btn text-text-primary font-inter text-sm hover:border-online transition-colors">
+                            <span class="material-icons text-base text-online">download</span>
+                            Unduh Template Excel
+                        </button>
+                    </div>
+                    <div>
+                        <label class="block font-inter font-bold text-input-label text-text-primary mb-sm uppercase tracking-label">Upload File Excel (.xlsx)</label>
+                        <input id="imp-file" type="file" accept=".xlsx"
+                            class="w-full text-text-secondary font-inter text-sm file:mr-sm file:py-sm file:px-md file:rounded-btn file:border file:border-gray-600 file:bg-bg-surface file:text-text-primary file:font-inter file:text-sm hover:file:border-online cursor-pointer">
+                    </div>
+                    <div id="imp-preview" class="hidden"></div>
+                    <div id="imp-err" class="hidden text-primary text-sm font-inter"></div>
+                </div>`,
+            onMount: (bodyEl) => {
+                bodyEl.querySelector('#btn-dl-template').onclick = async () => {
+                    try {
+                        const res = await api.get('/admin/import/siswa/template', { responseType: 'blob' });
+                        const url = window.URL.createObjectURL(new Blob([res.data]));
+                        const link = document.createElement('a');
+                        link.href = url;
+                        link.setAttribute('download', 'template_import_siswa.xlsx');
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
+                        window.URL.revokeObjectURL(url);
+                    } catch (e) {
+                        showToast('Gagal mengunduh template. Pastikan Anda memiliki akses admin.', 'error');
+                    }
+                };
+            },
+            footerButtons: [
+                { text: 'Batal', variant: 'secondary', onClick: close => close() },
+                { text: 'Upload & Proses', variant: 'primary', onClick: async (close, bodyEl) => {
+                    const fileInput = bodyEl.querySelector('#imp-file');
+                    const errEl     = bodyEl.querySelector('#imp-err');
+                    const showErr   = msg => { errEl.textContent = msg; errEl.classList.remove('hidden'); };
+
+                    if (!fileInput.files.length) return showErr('Pilih file Excel terlebih dahulu.');
+
+                    const formData = new FormData();
+                    formData.append('file', fileInput.files[0]);
+
+                    try {
+                        const res = await api.post('/admin/import/siswa', formData, {
+                            headers: { 'Content-Type': 'multipart/form-data' },
+                        });
+                        const data = res.data?.data;
+
+                        // Ada typo yang tidak bisa di-resolve otomatis → tampilkan konfirmasi
+                        if (data?.needsConfirmation && data.unresolved?.length) {
+                            close();
+                            this._modalResolveTypo(data);
+                            return;
+                        }
+
+                        close();
+                        showToast(`Berhasil import ${data?.imported ?? 0} siswa.`, 'success');
+                        this._tabSiswa();
+                    } catch (e) {
+                        showErr(e.response?.data?.message || 'Gagal memproses file.');
+                    }
+                }},
+            ],
+        });
+    }
+
+    // ── Modal Resolve Typo Jurusan ─────────────────────────────────────────────
+
+    _modalResolveTypo(data) {
+        // data.unresolved = [{ row, nama, nisn, tingkat, jurusanRaw, nomor }]
+        const rows = data.unresolved ?? [];
+
+        const rowsHtml = rows.map((r, i) => `
+            <div class="p-sm border border-gray-700 rounded-card mb-sm">
+                <p class="font-inter text-sm text-text-primary mb-xs">
+                    Baris ${r.row}: <strong>${r.nama}</strong> — jurusan tidak dikenal: 
+                    <span class="font-mono text-primary font-bold">"${r.jurusanRaw}"</span>
+                </p>
+                <select data-i="${i}" class="typo-fix w-full px-sm py-xs bg-bg-primary border border-gray-600 rounded-input text-text-primary font-inter text-sm">
+                    <option value="">-- Pilih Jurusan yang Benar --</option>
+                    ${JURUSAN_LIST.map(j => `<option value="${j}">${j}</option>`).join('')}
+                </select>
+            </div>`).join('');
+
+        createModal({
+            title: '⚠️ Jurusan Tidak Dikenal',
+            bodyHtml: `
+                <div class="flex flex-col gap-sm">
+                    <p class="font-inter text-sm text-text-secondary mb-sm">
+                        ${rows.length} baris memiliki jurusan yang tidak bisa dikenali otomatis.
+                        Pilih jurusan yang benar untuk setiap baris, lalu klik Lanjutkan.
+                    </p>
+                    ${rowsHtml}
+                    <div id="typo-err" class="hidden text-primary text-sm font-inter"></div>
+                </div>`,
+            footerButtons: [
+                { text: 'Batal', variant: 'secondary', onClick: close => close() },
+                { text: 'Lanjutkan Import', variant: 'primary', onClick: async (close, bodyEl) => {
+                    const errEl  = bodyEl.querySelector('#typo-err');
+                    const showErr = msg => { errEl.textContent = msg; errEl.classList.remove('hidden'); };
+
+                    const fixes = [];
+                    let valid = true;
+                    bodyEl.querySelectorAll('.typo-fix').forEach((sel, i) => {
+                        if (!sel.value) { valid = false; showErr(`Pilih jurusan untuk semua baris.`); return; }
+                        fixes.push({ ...rows[i], jurusanFixed: sel.value });
+                    });
+                    if (!valid) return;
+
+                    try {
+                        const res = await api.post('/admin/import/siswa/confirm', {
+                            sessionToken: data.sessionToken,
+                            fixes,
+                        });
+                        close();
+                        showToast(`Berhasil import ${res.data?.data?.imported ?? 0} siswa.`, 'success');
+                        this._tabSiswa();
+                    } catch (e) {
+                        showErr(e.response?.data?.message || 'Gagal menyimpan.');
+                    }
+                }},
+            ],
+        });
+    }
+
     // ── Modal User (guru / siswa) ──────────────────────────────────────────────
 
     async _modalUser(existing, role) {
-        const isEdit = !!existing;
+        const isEdit    = !!existing;
         const roleLabel = role === 'teacher' ? 'Guru' : 'Siswa';
-        const subjects = this._subjectsList || [];
 
         createModal({
             title: isEdit ? `Edit ${roleLabel}` : `Tambah ${roleLabel}`,
@@ -228,42 +385,73 @@ export class DashboardAdminPage extends BasePage {
                         <label class="block font-inter font-bold text-input-label text-text-primary mb-sm uppercase tracking-label">Password ${isEdit ? '(kosongkan jika tidak diganti)' : ''}</label>
                         <input id="u-pass" type="password" placeholder="${isEdit ? 'Isi untuk mengganti' : 'Min 6 karakter'}" class="w-full px-md py-3 bg-bg-primary border border-gray-600 rounded-input text-text-primary font-inter">
                     </div>
+                    ${role === 'student' ? `
                     <div>
-                        <label class="block font-inter font-bold text-input-label text-text-primary mb-sm uppercase tracking-label">
-                            ${role === 'teacher' ? 'Mata Pelajaran' : 'Kelas'}
-                        </label>
+                        <label class="block font-inter font-bold text-input-label text-text-primary mb-sm uppercase tracking-label">Kelas</label>
                         <div id="u-class-wrap"></div>
                     </div>
-                    <div>
+                    <div id="u-room-wrap">
                         <label class="block font-inter font-bold text-input-label text-text-primary mb-sm uppercase tracking-label">Ruang</label>
-                        <input id="u-room" type="text" value="${isEdit ? (existing.room ?? '') : ''}" placeholder="cth. Ruang-14" class="w-full px-md py-3 bg-bg-primary border border-gray-600 rounded-input text-text-primary font-inter">
-                    </div>
+                    </div>` : ''}
                     <div id="u-err" class="hidden text-primary text-sm font-inter"></div>
                 </div>`,
-            onMount: (bodyEl) => {
-                const wrap = bodyEl.querySelector('#u-class-wrap');
-                if (role === 'teacher') {
-                    // Dropdown mata pelajaran dari bank soal
+            onMount: async (bodyEl) => {
+                if (role === 'student') {
+                    const wrap = bodyEl.querySelector('#u-class-wrap');
+                    // Dropdown kelas dari API, dikelompokkan per grade
                     const sel = document.createElement('select');
                     sel.id = 'u-class';
                     sel.className = 'w-full px-md py-3 bg-bg-primary border border-gray-600 rounded-input text-text-primary font-inter';
-                    sel.innerHTML = '<option value="">-- Pilih Mata Pelajaran --</option>' +
-                        subjects.map(s => `<option value="${s}" ${isEdit && existing.class === s ? 'selected' : ''}>${s}</option>`).join('');
+                    sel.innerHTML = '<option value="">Memuat kelas...</option>';
                     wrap.appendChild(sel);
-                    if (!subjects.length) {
-                        const info = document.createElement('p');
-                        info.className = 'text-xs text-accent-gold font-inter mt-xs';
-                        info.textContent = 'Belum ada bank soal. Buat dulu di tab Mata Pelajaran agar mapel muncul di sini.';
-                        wrap.appendChild(info);
+
+                    try {
+                        const res    = await api.get('/admin/classes/grades');
+                        const grades = res.data?.data ?? [];
+                        sel.innerHTML = '<option value="">-- Pilih Kelas --</option>';
+
+                        grades.forEach(g => {
+                            if (!g.classes?.length) return;
+                            const grp = document.createElement('optgroup');
+                            grp.label = g.label;
+                            g.classes.forEach(c => {
+                                const opt = document.createElement('option');
+                                opt.value       = c.id;
+                                opt.textContent = c.name;
+                                // Cocokkan berdasarkan classId (jika ada) atau nama kelas lama
+                                if (isEdit && (existing.classId === c.id || existing.class === c.name)) {
+                                    opt.selected = true;
+                                }
+                                grp.appendChild(opt);
+                            });
+                            sel.appendChild(grp);
+                        });
+
+                        if (!grades.length) {
+                            sel.innerHTML = '<option value="">Belum ada kelas. Buat di tab Kelola Kelas.</option>';
+                        }
+                    } catch {
+                        sel.innerHTML = '<option value="">Gagal memuat kelas.</option>';
                     }
-                } else {
-                    // Input teks untuk kelas siswa
-                    const inp = document.createElement('input');
-                    inp.id = 'u-class'; inp.type = 'text';
-                    inp.value = isEdit ? (existing.class ?? '') : '';
-                    inp.placeholder = 'cth. XI RPL 1';
-                    inp.className = 'w-full px-md py-3 bg-bg-primary border border-gray-600 rounded-input text-text-primary font-inter';
-                    wrap.appendChild(inp);
+
+                    // Load rooms dropdown
+                    const roomWrap = bodyEl.querySelector('#u-room-wrap');
+                    if (roomWrap) {
+                        const roomSel = document.createElement('select');
+                        roomSel.id = 'u-room';
+                        roomSel.className = 'w-full px-md py-3 bg-bg-primary border border-gray-600 rounded-input text-text-primary font-inter';
+                        roomSel.innerHTML = '<option value="">Memuat ruangan...</option>';
+                        roomWrap.appendChild(roomSel);
+
+                        try {
+                            const roomsRes = await api.get('/admin/rooms');
+                            const rooms = roomsRes.data?.data ?? [];
+                            roomSel.innerHTML = '<option value="">-- Pilih Ruangan --</option>' +
+                                rooms.map(r => `<option value="${r.id}" ${isEdit && existing.roomId === r.id ? 'selected' : ''}>${r.name}</option>`).join('');
+                        } catch {
+                            roomSel.innerHTML = '<option value="">Gagal memuat ruangan.</option>';
+                        }
+                    }
                 }
             },
             footerButtons: [
@@ -272,8 +460,6 @@ export class DashboardAdminPage extends BasePage {
                     const name  = modalEl.querySelector('#u-name').value.trim();
                     const nisn  = modalEl.querySelector('#u-nisn').value.trim();
                     const pass  = modalEl.querySelector('#u-pass').value;
-                    const kelas = modalEl.querySelector('#u-class').value.trim();
-                    const room  = modalEl.querySelector('#u-room').value.trim();
                     const errEl = modalEl.querySelector('#u-err');
 
                     if (!name || (!isEdit && !nisn)) {
@@ -281,13 +467,26 @@ export class DashboardAdminPage extends BasePage {
                         errEl.classList.remove('hidden'); return;
                     }
                     try {
-                        const body = { name, class: kelas, room, role, verified: true };
+                        const body = { name, role, verified: true };
+
+                        if (role === 'student') {
+                            // Untuk siswa: kirim class_id (integer) dan class name (string)
+                            const sel     = modalEl.querySelector('#u-class');
+                            const classId = Number(sel.value);
+                            const className = sel.options[sel.selectedIndex]?.textContent || '';
+                            if (classId) { body.class_id = classId; body.class = className; }
+
+                            const roomSel = modalEl.querySelector('#u-room');
+                            if (roomSel && roomSel.value) {
+                                body.roomId = Number(roomSel.value);
+                            }
+                        }
+
                         if (!isEdit) { body.nisn = nisn; body.password = pass || 'siswa123'; }
                         else if (pass) body.password = pass;
 
                         if (isEdit) await api.put(`/admin/users/${existing.id}`, body);
                         else        await api.post('/admin/users', body);
-
                         close();
                         this._renderTab();
                     } catch (e) {
@@ -309,12 +508,9 @@ export class DashboardAdminPage extends BasePage {
         wrap.appendChild(this._loading());
 
         try {
-            const [examsRes, banksRes] = await Promise.all([
-                api.get('/admin/exams'),
-                api.get('/admin/question-banks'),
-            ]);
-            this._examsList  = examsRes.data?.data ?? [];
-            this._banksList  = banksRes.data?.data ?? [];
+            const [examsRes, banksRes] = await Promise.all([api.get('/admin/exams'), api.get('/admin/question-banks')]);
+            this._examsList = examsRes.data?.data ?? [];
+            this._banksList = banksRes.data?.data ?? [];
             wrap.innerHTML = '';
             this._renderExamTable(wrap);
         } catch (_) {
@@ -329,14 +525,13 @@ export class DashboardAdminPage extends BasePage {
             { key: 'title',   label: 'Nama Ujian' },
             { key: 'subject', label: 'Mapel' },
             { key: 'teacher', label: 'Guru' },
-            { key: 'room',    label: 'Ruang' },
             { key: 'token',   label: 'Token', render: r => `<span class="font-mono font-bold text-accent-gold">${r.token}</span>` },
             { key: 'status',  label: 'Status', render: r => statusPill(r.status) },
             { key: 'actions', label: 'Aksi', render: r => `
                 <div class="flex gap-sm" data-eid="${r.id}">
                     <button class="e-edit material-icons text-text-muted hover:text-online text-lg" title="Edit">edit</button>
-                    ${r.status === 'draft'     ? `<button class="e-activate material-icons text-text-muted hover:text-accent-gold text-lg" title="Aktifkan">play_circle</button>` : ''}
-                    ${r.status === 'active'    ? `<button class="e-complete material-icons text-text-muted hover:text-primary text-lg" title="Tutup">lock</button>` : ''}
+                    ${r.status === 'draft'  ? `<button class="e-activate material-icons text-text-muted hover:text-accent-gold text-lg" title="Aktifkan">play_circle</button>` : ''}
+                    ${r.status === 'active' ? `<button class="e-complete material-icons text-text-muted hover:text-primary text-lg" title="Tutup">lock</button>` : ''}
                     <button class="e-reset material-icons text-text-muted hover:text-text-primary text-lg" title="Reset Token">autorenew</button>
                     <button class="e-del material-icons text-text-muted hover:text-primary text-lg" title="Hapus">delete</button>
                 </div>` },
@@ -357,17 +552,18 @@ export class DashboardAdminPage extends BasePage {
             });
             el.querySelector('.e-reset')?.addEventListener('click', async () => {
                 const res = await api.post(`/admin/exams/${exam.id}/reset-token`);
-                alert(`Token baru: ${res.data?.data?.token}`);
-                this._tabUjian();
+                 showToast(`Token baru: ${res.data?.data?.token}`, 'success');
+                 this._tabUjian();
             });
             el.querySelector('.e-del')?.addEventListener('click', () => this._confirmDelete(exam, 'admin/exams'));
         });
     }
 
     _modalUjian(existing) {
-        const isEdit = !!existing;
-        const banks  = this._banksList || [];
-        const fmt    = iso => iso ? new Date(iso).toISOString().slice(0, 16) : '';
+        const isEdit    = !!existing;
+        const banks     = this._banksList || [];
+        const fmt       = iso => iso ? new Date(iso).toISOString().slice(0, 16) : '';
+        let classPicker = null;
 
         createModal({
             title: isEdit ? 'Edit Ujian' : 'Buat Ujian Baru',
@@ -395,15 +591,9 @@ export class DashboardAdminPage extends BasePage {
                         </div>
                         ${!banks.length ? '<p class="text-xs text-primary font-inter mt-xs">Belum ada bank soal. Buat dulu di tab Mata Pelajaran.</p>' : ''}
                     </div>
-                    <div class="grid grid-cols-2 gap-md">
-                        <div>
-                            <label class="block font-inter font-bold text-input-label text-text-primary mb-sm uppercase tracking-label">Durasi (menit)</label>
-                            <input id="ex-dur" type="number" value="${isEdit ? existing.durationMinutes : 90}" class="w-full px-md py-3 bg-bg-primary border border-gray-600 rounded-input text-text-primary font-inter">
-                        </div>
-                        <div>
-                            <label class="block font-inter font-bold text-input-label text-text-primary mb-sm uppercase tracking-label">Ruang</label>
-                            <input id="ex-room" type="text" value="${isEdit ? (existing.room ?? '') : ''}" placeholder="cth. Ruang-14" class="w-full px-md py-3 bg-bg-primary border border-gray-600 rounded-input text-text-primary font-inter">
-                        </div>
+                    <div>
+                        <label class="block font-inter font-bold text-input-label text-text-primary mb-sm uppercase tracking-label">Durasi (menit)</label>
+                        <input id="ex-dur" type="number" value="${isEdit ? existing.durationMinutes : 90}" class="w-full px-md py-3 bg-bg-primary border border-gray-600 rounded-input text-text-primary font-inter">
                     </div>
                     <div class="grid grid-cols-2 gap-md">
                         <div>
@@ -415,10 +605,14 @@ export class DashboardAdminPage extends BasePage {
                             <input id="ex-end" type="datetime-local" value="${fmt(isEdit ? existing.endTime : '')}" class="w-full px-md py-3 bg-bg-primary border border-gray-600 rounded-input text-text-primary font-inter">
                         </div>
                     </div>
+                    <div>
+                        <div id="ex-class-picker" class="border border-gray-700 rounded-card p-md">
+                            <p class="text-xs text-text-muted font-inter animate-pulse">Memuat daftar kelas...</p>
+                        </div>
+                    </div>
                     <div id="ex-err" class="hidden text-primary text-sm font-inter"></div>
                 </div>`,
             onMount: (bodyEl) => {
-                // Tampilkan info mapel + guru saat pilih bank soal
                 const bankSel = bodyEl.querySelector('#ex-bank');
                 const infoEl  = bodyEl.querySelector('#ex-bank-info');
                 const subjEl  = bodyEl.querySelector('#ex-info-subj');
@@ -434,10 +628,12 @@ export class DashboardAdminPage extends BasePage {
                         infoEl.classList.add('hidden');
                     }
                 };
-
                 bankSel.addEventListener('change', updateInfo);
-                // Trigger langsung jika edit (bank sudah preselected)
                 if (isEdit) updateInfo();
+
+                const pickerWrap  = bodyEl.querySelector('#ex-class-picker');
+                const preselected = isEdit ? (existing.classes ?? []).map(c => c.id) : [];
+                classPicker = new ClassMultiSelect(pickerWrap, { selected: preselected });
             },
             footerButtons: [
                 { text: 'Batal', variant: 'secondary', onClick: close => close() },
@@ -445,61 +641,194 @@ export class DashboardAdminPage extends BasePage {
                     const bankSel  = bodyEl.querySelector('#ex-bank');
                     const selOpt   = bankSel.options[bankSel.selectedIndex];
                     const errEl    = bodyEl.querySelector('#ex-err');
+                    const showErr  = msg => { errEl.textContent = msg; errEl.classList.remove('hidden'); };
+                    const classIds = classPicker ? classPicker.getSelected() : [];
 
                     const body = {
-                        title:              bodyEl.querySelector('#ex-title').value.trim(),
-                        question_bank_id:   Number(bankSel.value),
-                        subject:            selOpt?.dataset.subject || '',
-                        teacher_id:         Number(selOpt?.dataset.teacherid || 0),
-                        room:               bodyEl.querySelector('#ex-room').value.trim(),
-                        duration_minutes:   Number(bodyEl.querySelector('#ex-dur').value),
-                        start_time:         bodyEl.querySelector('#ex-start').value,
-                        end_time:           bodyEl.querySelector('#ex-end').value,
+                        title:            bodyEl.querySelector('#ex-title').value.trim(),
+                        question_bank_id: Number(bankSel.value),
+                        subject:          selOpt?.dataset.subject || '',
+                        teacher_id:       Number(selOpt?.dataset.teacherid || 0),
+                        duration_minutes: Number(bodyEl.querySelector('#ex-dur').value),
+                        start_time:       bodyEl.querySelector('#ex-start').value,
+                        end_time:         bodyEl.querySelector('#ex-end').value,
+                        class_ids:        classIds,
                     };
 
-                    if (!body.title) {
-                        errEl.textContent = 'Nama ujian wajib diisi.';
-                        errEl.classList.remove('hidden'); return;
-                    }
-                    if (!body.question_bank_id) {
-                        errEl.textContent = 'Pilih bank soal terlebih dahulu.';
-                        errEl.classList.remove('hidden'); return;
-                    }
+                    if (!body.title)            return showErr('Nama ujian wajib diisi.');
+                    if (!body.question_bank_id) return showErr('Pilih bank soal terlebih dahulu.');
+                    if (classIds.length === 0)  return showErr('Pilih minimal satu kelas peserta ujian.');
 
                     try {
                         if (isEdit) await api.put(`/admin/exams/${existing.id}`, body);
                         else        await api.post('/admin/exams', body);
-                        close(); this._tabUjian();
+                        close();
+                        this._tabUjian();
                     } catch (e) {
-                        errEl.textContent = e.response?.data?.message || 'Gagal menyimpan.';
-                        errEl.classList.remove('hidden');
+                        showErr(e.response?.data?.message || 'Gagal menyimpan.');
                     }
                 }},
             ],
         });
     }
 
+    // ── Tab Kelas ──────────────────────────────────────────────────────────────
 
-
-    // ── Tab Kelola Proktor ─────────────────────────────────────────────────────
-
-    async _tabProktor() {
+    async _tabKelas() {
         this.contentArea.innerHTML = '';
         this.contentArea.appendChild(this._header(
-            'KELOLA PROKTOR', 'Tambah pengawas ujian dan tugaskan ke ruangan.',
-            'TAMBAH PROKTOR', () => this._modalProktor(null)
+            'KELOLA KELAS', 'Buat dan kelola rombongan belajar per angkatan.',
+            'TAMBAH KELAS', () => this._modalKelas(null)
         ));
         const wrap = createElement('div', '');
         this.contentArea.appendChild(wrap);
         wrap.appendChild(this._loading());
 
-        // Ambil daftar ruang dari ujian yang ada (untuk dropdown room)
+        try {
+            const res = await api.get('/admin/classes');
+            const classes = res.data?.data ?? [];
+            wrap.innerHTML = '';
+
+            const cols = [
+                { key: 'grade',        label: 'Tingkat',   render: r => r.grade?.label ?? '-' },
+                { key: 'name',         label: 'Nama Kelas' },
+                { key: 'major',        label: 'Jurusan',   render: r => r.major ?? '-' },
+                { key: 'studentCount', label: 'Siswa' },
+                { key: 'actions', label: 'Aksi', render: r => `
+                    <div class="flex gap-sm" data-cid="${r.id}">
+                        <button class="c-edit material-icons text-text-muted hover:text-online text-lg">edit</button>
+                        <button class="c-del material-icons text-text-muted hover:text-primary text-lg">delete</button>
+                    </div>` },
+            ];
+            wrap.appendChild(createTable(cols, classes));
+            wrap.querySelectorAll('[data-cid]').forEach(el => {
+                const c = classes.find(x => x.id === Number(el.dataset.cid));
+                el.querySelector('.c-edit').onclick = () => this._modalKelas(c);
+                el.querySelector('.c-del').onclick  = () => this._confirmDelete(c, 'admin/classes');
+            });
+        } catch (e) {
+            wrap.innerHTML = '';
+            wrap.appendChild(this._error('Gagal memuat data kelas.', () => this._tabKelas()));
+        }
+    }
+
+    _modalKelas(existing = null) {
+        const isEdit = !!existing;
+
+        // Dropdown jurusan statis 6 pilihan resmi
+        const jurusanOptions = JURUSAN_LIST.map(j =>
+            `<option value="${j}" ${isEdit && existing.major === j ? 'selected' : ''}>${j}</option>`
+        ).join('');
+
+        createModal({
+            title: isEdit ? 'Edit Kelas' : 'Tambah Kelas',
+            bodyHtml: `
+                <div class="flex flex-col gap-md">
+                    <div>
+                        <label class="block font-inter font-bold text-input-label text-text-primary mb-sm uppercase tracking-label">Tingkat</label>
+                        <select id="k-grade" class="w-full px-md py-3 bg-bg-primary border border-gray-600 rounded-input text-text-primary font-inter">
+                            <option value="">-- Pilih Tingkat --</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block font-inter font-bold text-input-label text-text-primary mb-sm uppercase tracking-label">Jurusan</label>
+                        <select id="k-major" class="w-full px-md py-3 bg-bg-primary border border-gray-600 rounded-input text-text-primary font-inter">
+                            <option value="">-- Pilih Jurusan --</option>
+                            ${jurusanOptions}
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block font-inter font-bold text-input-label text-text-primary mb-sm uppercase tracking-label">Nomor Kelas <span class="text-text-muted font-normal">(opsional, isi jika lebih dari 1)</span></label>
+                        <input id="k-nomor" type="number" min="1" max="9"
+                            value="${isEdit ? (existing._nomor ?? '') : ''}"
+                            placeholder="Kosongkan jika hanya 1 kelas"
+                            class="w-full px-md py-3 bg-bg-primary border border-gray-600 rounded-input text-text-primary font-inter">
+                        <p class="text-xs text-text-muted font-inter mt-xs">Nama kelas akan dibuat otomatis. Contoh: <span id="k-preview" class="text-accent-gold font-bold">XI RPL</span></p>
+                    </div>
+                    <div id="k-err" class="hidden text-primary text-sm font-inter"></div>
+                </div>`,
+            onMount: async (bodyEl) => {
+                // Load grades dari API
+                try {
+                    const res   = await api.get('/admin/classes/grades');
+                    const grades = res.data?.data ?? [];
+                    const sel   = bodyEl.querySelector('#k-grade');
+                    grades.forEach(g => {
+                        const opt = document.createElement('option');
+                        opt.value = g.id;
+                        opt.textContent = g.label;
+                        opt.dataset.name = g.name; // "X" / "XI" / "XII"
+                        if (isEdit && existing.gradeId === g.id) opt.selected = true;
+                        sel.appendChild(opt);
+                    });
+                } catch { /* ignore */ }
+
+                // Live preview nama kelas
+                const updatePreview = () => {
+                    const gradeSel  = bodyEl.querySelector('#k-grade');
+                    const majorSel  = bodyEl.querySelector('#k-major');
+                    const nomorInp  = bodyEl.querySelector('#k-nomor');
+                    const preview   = bodyEl.querySelector('#k-preview');
+                    const gradeOpt  = gradeSel.options[gradeSel.selectedIndex];
+                    const gradeName = gradeOpt?.dataset.name || '';
+                    const major     = majorSel.value;
+                    const nomor     = parseInt(nomorInp.value);
+                    if (!gradeName || !major) { preview.textContent = '—'; return; }
+                    const nama = (!nomor || nomor <= 1) ? `${gradeName} ${major}` : `${gradeName} ${major}-${nomor}`;
+                    preview.textContent = nama;
+                };
+                bodyEl.querySelector('#k-grade').addEventListener('change', updatePreview);
+                bodyEl.querySelector('#k-major').addEventListener('change', updatePreview);
+                bodyEl.querySelector('#k-nomor').addEventListener('input',  updatePreview);
+                if (isEdit) updatePreview();
+            },
+            footerButtons: [
+                { text: 'Batal', variant: 'secondary', onClick: close => close() },
+                { text: 'Simpan', variant: 'primary', onClick: async (close, bodyEl) => {
+                    const errEl   = bodyEl.querySelector('#k-err');
+                    const showErr = msg => { errEl.textContent = msg; errEl.classList.remove('hidden'); };
+
+                    const gradeEl  = bodyEl.querySelector('#k-grade');
+                    const gradeId  = +gradeEl.value;
+                    const gradeOpt = gradeEl.options[gradeEl.selectedIndex];
+                    const gradeName = gradeOpt?.dataset.name || '';
+                    const major    = bodyEl.querySelector('#k-major').value;
+                    const nomor    = parseInt(bodyEl.querySelector('#k-nomor').value);
+
+                    if (!gradeId) return showErr('Pilih tingkat kelas.');
+                    if (!major)   return showErr('Pilih jurusan.');
+
+                    // Bangun nama otomatis
+                    const name = (!nomor || nomor <= 1) ? `${gradeName} ${major}` : `${gradeName} ${major}-${nomor}`;
+
+                    try {
+                        const payload = { name, grade_id: gradeId, major };
+                        if (isEdit) await api.put(`/admin/classes/${existing.id}`, payload);
+                        else        await api.post('/admin/classes', payload);
+                        close();
+                        this._tabKelas();
+                    } catch (e) {
+                        showErr(e.response?.data?.message || 'Gagal menyimpan.');
+                    }
+                }},
+            ],
+        });
+    }
+
+    // ── Tab Kelola Proktor ─────────────────────────────────────────────────────
+
+    async _tabProktor() {
+        this.contentArea.innerHTML = '';
+        this.contentArea.appendChild(this._header('KELOLA PROKTOR', 'Tambah pengawas ujian dan tugaskan ke ruangan.', 'TAMBAH PROKTOR', () => this._modalProktor(null)));
+        const wrap = createElement('div', '');
+        this.contentArea.appendChild(wrap);
+        wrap.appendChild(this._loading());
+
         let rooms = [];
         try {
-            const examsRes = await api.get('/admin/exams');
-            rooms = [...new Set((examsRes.data?.data ?? []).map(e => e.room).filter(Boolean))].sort();
+            const roomsRes = await api.get('/admin/rooms');
+            rooms = roomsRes.data?.data ?? [];
         } catch (_) {}
-
         this._roomsList = rooms;
 
         try {
@@ -510,19 +839,15 @@ export class DashboardAdminPage extends BasePage {
             const cols = [
                 { key: 'name',     label: 'Nama Proktor' },
                 { key: 'nisn',     label: 'NIP / NISN' },
-                { key: 'room',     label: 'Ruang Tugas', render: r =>
-                    r.room
-                        ? `<span class="font-mono font-bold text-accent-gold">${r.room}</span>`
-                        : '<span class="text-text-muted italic">Belum diset</span>' },
+                { key: 'room',     label: 'Ruang Tugas', render: r => r.room ? `<span class="font-mono font-bold text-accent-gold">${r.room}</span>` : '<span class="text-text-muted italic">Belum diset</span>' },
                 { key: 'verified', label: 'Status', render: r => statusPill(r.verified ? 'aktif' : 'nonaktif') },
                 { key: 'actions',  label: 'Aksi', render: r => `
                     <div class="flex gap-sm" data-pid="${r.id}">
-                        <button class="p-edit material-icons text-text-muted hover:text-online text-lg" title="Edit">edit</button>
-                        <button class="p-del material-icons text-text-muted hover:text-primary text-lg" title="Hapus">delete</button>
+                        <button class="p-edit material-icons text-text-muted hover:text-online text-lg">edit</button>
+                        <button class="p-del material-icons text-text-muted hover:text-primary text-lg">delete</button>
                     </div>` },
             ];
-            wrap.appendChild(createTable(cols, proctors, { emptyMessage: 'Belum ada proktor. Tambahkan proktor terlebih dahulu.' }));
-
+            wrap.appendChild(createTable(cols, proctors, { emptyMessage: 'Belum ada proktor.' }));
             wrap.querySelectorAll('[data-pid]').forEach(el => {
                 const p = proctors.find(x => x.id === Number(el.dataset.pid));
                 el.querySelector('.p-edit').onclick = () => this._modalProktor(p);
@@ -556,16 +881,10 @@ export class DashboardAdminPage extends BasePage {
                     </div>
                     <div>
                         <label class="block font-inter font-bold text-input-label text-text-primary mb-sm uppercase tracking-label">Ruang Tugas</label>
-                        ${rooms.length ? `
                         <select id="pr-room" class="w-full px-md py-3 bg-bg-primary border border-gray-600 rounded-input text-text-primary font-inter">
                             <option value="">-- Pilih Ruang --</option>
-                            ${rooms.map(r => `<option value="${r}" ${isEdit && existing.room === r ? 'selected' : ''}>${r}</option>`).join('')}
+                            ${rooms.map(r => `<option value="${r.id}" ${isEdit && existing.roomId === r.id ? 'selected' : ''}>${r.name}</option>`).join('')}
                         </select>
-                        <p class="text-xs text-text-muted font-inter mt-xs">Proktor hanya bisa monitoring siswa di ruang ini</p>
-                        ` : `
-                        <input id="pr-room" type="text" value="${isEdit ? (existing.room ?? '') : ''}" placeholder="cth. Ruang-7" class="w-full px-md py-3 bg-bg-primary border border-gray-600 rounded-input text-text-primary font-inter">
-                        <p class="text-xs text-accent-gold font-inter mt-xs">⚠ Buat ujian dengan nama ruang dulu agar muncul di dropdown</p>
-                        `}
                     </div>
                     <div id="pr-err" class="hidden text-primary text-sm font-inter"></div>
                 </div>`,
@@ -575,20 +894,14 @@ export class DashboardAdminPage extends BasePage {
                     const name  = body.querySelector('#pr-name').value.trim();
                     const nisn  = body.querySelector('#pr-nisn').value.trim();
                     const pass  = body.querySelector('#pr-pass').value;
-                    const room  = body.querySelector('#pr-room').value.trim();
+                    const roomId = body.querySelector('#pr-room').value;
                     const errEl = body.querySelector('#pr-err');
 
-                    if (!name || (!isEdit && !nisn)) {
-                        errEl.textContent = 'Nama dan NIP wajib diisi.';
-                        errEl.classList.remove('hidden'); return;
-                    }
-                    if (!room) {
-                        errEl.textContent = 'Ruang tugas wajib diisi.';
-                        errEl.classList.remove('hidden'); return;
-                    }
+                    if (!name || (!isEdit && !nisn)) { errEl.textContent = 'Nama dan NIP wajib diisi.'; errEl.classList.remove('hidden'); return; }
+                    if (!roomId)                     { errEl.textContent = 'Ruang tugas wajib diisi.'; errEl.classList.remove('hidden'); return; }
 
                     try {
-                        const payload = { name, room, verified: true };
+                        const payload = { name, roomId: Number(roomId), verified: true };
                         if (!isEdit) { payload.nisn = nisn; payload.password = pass || 'proktor123'; }
                         else if (pass) payload.password = pass;
 
@@ -607,14 +920,12 @@ export class DashboardAdminPage extends BasePage {
     _confirmDeleteProktor(p) {
         createModal({
             title: 'Hapus Proktor',
-            bodyHtml: `<p class="font-inter text-text-primary">Hapus akun proktor <strong>${p.name}</strong> (Ruang: ${p.room || '-'})?</p>`,
+            bodyHtml: `<p class="font-inter text-text-primary">Hapus akun proktor <strong>${p.name}</strong>?</p>`,
             footerButtons: [
                 { text: 'Batal', variant: 'secondary', onClick: close => close() },
                 { text: 'Hapus', variant: 'primary', onClick: async (close) => {
-                    try {
-                        await api.delete(`/admin/proctors/${p.id}`);
-                        close(); this._tabProktor();
-                    } catch (e) { alert(e.response?.data?.message || 'Gagal menghapus.'); close(); }
+                    try { await api.delete(`/admin/proctors/${p.id}`); close(); this._tabProktor(); }
+                    catch (e) { showToast(e.response?.data?.message || 'Gagal menghapus.', 'error'); close(); }
                 }},
             ],
         });
@@ -624,10 +935,7 @@ export class DashboardAdminPage extends BasePage {
 
     async _tabMapel() {
         this.contentArea.innerHTML = '';
-        this.contentArea.appendChild(this._header(
-            'MATA PELAJARAN', 'Daftar bank soal per mata pelajaran.',
-            'BUAT BANK SOAL', () => this._modalBuatBankSoal()
-        ));
+        this.contentArea.appendChild(this._header('MATA PELAJARAN', 'Daftar bank soal per mata pelajaran.', 'BUAT BANK SOAL', () => this._modalBuatBankSoal()));
         const wrap = createElement('div', '');
         this.contentArea.appendChild(wrap);
         wrap.appendChild(this._loading());
@@ -645,11 +953,10 @@ export class DashboardAdminPage extends BasePage {
                 { key: 'creator',       label: 'Dibuat Oleh' },
                 { key: 'actions', label: 'Aksi', render: r => `
                     <div class="flex gap-sm" data-bid="${r.id}">
-                        <button class="bk-del material-icons text-text-muted hover:text-primary text-lg" title="Hapus">delete</button>
+                        <button class="bk-del material-icons text-text-muted hover:text-primary text-lg">delete</button>
                     </div>` },
             ];
             wrap.appendChild(createTable(cols, banks, { emptyMessage: 'Belum ada bank soal.' }));
-
             wrap.querySelectorAll('[data-bid]').forEach(el => {
                 const bank = banks.find(b => b.id === Number(el.dataset.bid));
                 el.querySelector('.bk-del').onclick = () => this._confirmDeleteBank(bank);
@@ -672,7 +979,7 @@ export class DashboardAdminPage extends BasePage {
                     <div>
                         <label class="block font-inter font-bold text-input-label text-text-primary mb-sm uppercase tracking-label">Mata Pelajaran</label>
                         <input id="mb-subj" type="text" placeholder="cth. Produktif TKRO" class="w-full px-md py-3 bg-bg-primary border border-gray-600 rounded-input text-text-primary font-inter">
-                        <p class="text-xs text-text-muted font-inter mt-xs">Tulis nama mapel lengkap dan konsisten. Contoh: "Produktif TKRO" bukan "TKR"</p>
+                        <p class="text-xs text-text-muted font-inter mt-xs">Tulis nama mapel lengkap dan konsisten.</p>
                     </div>
                     <div id="mb-err" class="hidden text-primary text-sm font-inter"></div>
                 </div>`,
@@ -683,13 +990,8 @@ export class DashboardAdminPage extends BasePage {
                     const subject = body.querySelector('#mb-subj').value.trim();
                     const errEl   = body.querySelector('#mb-err');
                     if (!name || !subject) { errEl.textContent = 'Semua field wajib diisi.'; errEl.classList.remove('hidden'); return; }
-                    try {
-                        await api.post('/admin/question-banks', { name, subject });
-                        close(); this._tabMapel();
-                    } catch (e) {
-                        errEl.textContent = e.response?.data?.message || 'Gagal membuat bank soal.';
-                        errEl.classList.remove('hidden');
-                    }
+                    try { await api.post('/admin/question-banks', { name, subject }); close(); this._tabMapel(); }
+                    catch (e) { errEl.textContent = e.response?.data?.message || 'Gagal.'; errEl.classList.remove('hidden'); }
                 }},
             ],
         });
@@ -698,15 +1000,12 @@ export class DashboardAdminPage extends BasePage {
     _confirmDeleteBank(bank) {
         createModal({
             title: 'Hapus Bank Soal',
-            bodyHtml: `<p class="font-inter text-text-primary">Hapus bank soal <strong>${bank.name}</strong> (${bank.subject})?<br>
-                       <span class="text-primary text-sm">Semua soal di dalamnya ikut terhapus.</span></p>`,
+            bodyHtml: `<p class="font-inter text-text-primary">Hapus bank soal <strong>${bank.name}</strong> (${bank.subject})?<br><span class="text-primary text-sm">Semua soal di dalamnya ikut terhapus.</span></p>`,
             footerButtons: [
                 { text: 'Batal', variant: 'secondary', onClick: close => close() },
                 { text: 'Hapus', variant: 'primary', onClick: async (close) => {
-                    try {
-                        await api.delete(`/admin/question-banks/${bank.id}`);
-                        close(); this._tabMapel();
-                    } catch (e) { alert(e.response?.data?.message || 'Gagal menghapus.'); close(); }
+                    try { await api.delete(`/admin/question-banks/${bank.id}`); close(); this._tabMapel(); }
+                    catch (e) { showToast(e.response?.data?.message || 'Gagal menghapus.', 'error'); close(); }
                 }},
             ],
         });
@@ -716,10 +1015,7 @@ export class DashboardAdminPage extends BasePage {
 
     async _tabTokenSesi() {
         this.contentArea.innerHTML = '';
-        this.contentArea.appendChild(this._header(
-            'TOKEN SESI', 'Buat token yang dimasukkan siswa saat login.',
-            'BUAT TOKEN SESI', () => this._modalTokenSesi()
-        ));
+        this.contentArea.appendChild(this._header('TOKEN SESI', 'Buat token yang dimasukkan siswa saat login.', 'BUAT TOKEN SESI', () => this._modalTokenSesi()));
         const wrap = createElement('div', '');
         this.contentArea.appendChild(wrap);
         wrap.appendChild(this._loading());
@@ -730,17 +1026,17 @@ export class DashboardAdminPage extends BasePage {
             wrap.innerHTML = '';
 
             const cols = [
-                { key: 'token',       label: 'Token', render: r => `<span class="font-mono font-bold text-accent-gold">${r.token}</span>` },
+                { key: 'token',       label: 'Token Sesi', render: r => `<span class="font-mono font-bold text-accent-gold text-lg">${r.token}</span>` },
+                { key: 'room',        label: 'Ruangan', render: r => r.room ? r.room.name : '-' },
+                { key: 'proctor',     label: 'Proktor', render: r => r.proctor ? r.proctor.name : '-' },
                 { key: 'description', label: 'Keterangan' },
-                { key: 'validUntil',  label: 'Berlaku Sampai', render: r => r.validUntil ? new Date(r.validUntil).toLocaleString('id-ID') : '-' },
                 { key: 'active',      label: 'Status', render: r => statusPill(r.active ? 'aktif' : 'nonaktif') },
                 { key: 'actions',     label: 'Aksi', render: r => `
                     <div class="flex gap-sm" data-sid="${r.id}">
-                        <button class="s-toggle material-icons text-text-muted hover:text-online text-lg" title="${r.active ? 'Nonaktifkan' : 'Aktifkan'}">${r.active ? 'block' : 'check_circle'}</button>
+                        <button class="s-toggle material-icons text-text-muted hover:text-online text-lg">${r.active ? 'block' : 'check_circle'}</button>
                     </div>` },
             ];
             wrap.appendChild(createTable(cols, sessions));
-
             wrap.querySelectorAll('[data-sid]').forEach(el => {
                 const sess = sessions.find(s => s.id === Number(el.dataset.sid));
                 el.querySelector('.s-toggle').onclick = async () => {
@@ -754,42 +1050,72 @@ export class DashboardAdminPage extends BasePage {
         }
     }
 
-    _modalTokenSesi() {
-        const todayMidnight = new Date();
-        todayMidnight.setHours(23, 59, 0, 0);
-        const midStr = todayMidnight.toISOString().slice(0, 16);
-
+    async _modalTokenSesi() {
         createModal({
             title: 'Buat Token Sesi Baru',
             bodyHtml: `
                 <div class="flex flex-col gap-md">
                     <div>
-                        <label class="block font-inter font-bold text-input-label text-text-primary mb-sm uppercase tracking-label">Token (max 20 karakter)</label>
-                        <input id="ts-token" type="text" placeholder="cth. SESI02" maxlength="20" class="w-full px-md py-3 bg-bg-primary border border-gray-600 rounded-input text-text-primary font-inter uppercase">
+                        <label class="block font-inter font-bold text-input-label text-text-primary mb-sm uppercase tracking-label">Ruangan</label>
+                        <select id="ts-room" class="w-full px-md py-3 bg-bg-primary border border-gray-600 rounded-input text-text-primary font-inter">
+                            <option value="">Memuat ruangan...</option>
+                        </select>
                     </div>
                     <div>
-                        <label class="block font-inter font-bold text-input-label text-text-primary mb-sm uppercase tracking-label">Keterangan</label>
-                        <input id="ts-desc" type="text" placeholder="cth. Token Sesi Hari Selasa" class="w-full px-md py-3 bg-bg-primary border border-gray-600 rounded-input text-text-primary font-inter">
+                        <label class="block font-inter font-bold text-input-label text-text-primary mb-sm uppercase tracking-label">Proktor Tugas <span class="text-text-muted font-normal">(opsional)</span></label>
+                        <select id="ts-proctor" class="w-full px-md py-3 bg-bg-primary border border-gray-600 rounded-input text-text-primary font-inter">
+                            <option value="">Memuat proktor...</option>
+                        </select>
                     </div>
                     <div>
-                        <label class="block font-inter font-bold text-input-label text-text-primary mb-sm uppercase tracking-label">Berlaku Sampai</label>
-                        <input id="ts-until" type="datetime-local" value="${midStr}" class="w-full px-md py-3 bg-bg-primary border border-gray-600 rounded-input text-text-primary font-inter">
+                        <label class="block font-inter font-bold text-input-label text-text-primary mb-sm uppercase tracking-label">Keterangan <span class="text-text-muted font-normal">(opsional)</span></label>
+                        <input id="ts-desc" type="text" placeholder="cth. Sesi Ujian Produktif" class="w-full px-md py-3 bg-bg-primary border border-gray-600 rounded-input text-text-primary font-inter">
                     </div>
                     <div id="ts-err" class="hidden text-primary text-sm font-inter"></div>
                 </div>`,
+            onMount: async (bodyEl) => {
+                const roomSel = bodyEl.querySelector('#ts-room');
+                const proctorSel = bodyEl.querySelector('#ts-proctor');
+
+                try {
+                    const [roomsRes, proctorsRes] = await Promise.all([
+                        api.get('/admin/rooms'),
+                        api.get('/admin/proctors')
+                    ]);
+                    const rooms = roomsRes.data?.data ?? [];
+                    const proctors = proctorsRes.data?.data ?? [];
+
+                    roomSel.innerHTML = '<option value="">-- Pilih Ruangan --</option>' +
+                        rooms.map(r => `<option value="${r.id}">${r.name}</option>`).join('');
+
+                    proctorSel.innerHTML = '<option value="">-- Pilih Proktor (Opsional) --</option>' +
+                        proctors.map(p => `<option value="${p.id}">${p.name} (${p.room ? p.room : 'Belum diset'})</option>`).join('');
+                } catch (e) {
+                    roomSel.innerHTML = '<option value="">Gagal memuat data.</option>';
+                    proctorSel.innerHTML = '<option value="">Gagal memuat data.</option>';
+                }
+            },
             footerButtons: [
                 { text: 'Batal', variant: 'secondary', onClick: close => close() },
-                { text: 'Buat Token', variant: 'primary', onClick: async (close, body) => {
-                    const token = body.querySelector('#ts-token').value.trim().toUpperCase();
-                    const desc  = body.querySelector('#ts-desc').value.trim();
-                    const until = body.querySelector('#ts-until').value;
-                    const errEl = body.querySelector('#ts-err');
-                    if (!token) { errEl.textContent = 'Token wajib diisi.'; errEl.classList.remove('hidden'); return; }
+                { text: 'Buat Token', variant: 'primary', onClick: async (close, bodyEl) => {
+                    const roomId = bodyEl.querySelector('#ts-room').value;
+                    const proctorId = bodyEl.querySelector('#ts-proctor').value;
+                    const desc  = bodyEl.querySelector('#ts-desc').value.trim();
+                    const errEl = bodyEl.querySelector('#ts-err');
+
+                    if (!roomId) { errEl.textContent = 'Pilih ruangan terlebih dahulu.'; errEl.classList.remove('hidden'); return; }
+
                     try {
-                        await api.post('/admin/sessions', { token, description: desc, validUntil: until || undefined });
-                        close(); this._tabTokenSesi();
+                        const payload = { roomId: Number(roomId) };
+                        if (proctorId) payload.proctorId = Number(proctorId);
+                        if (desc) payload.description = desc;
+
+                        const res = await api.post('/admin/sessions', payload);
+                        close();
+                        showToast(`Token Sesi dibuat: ${res.data?.data?.token}`, 'success');
+                        this._tabTokenSesi();
                     } catch (e) {
-                        errEl.textContent = e.response?.data?.message || 'Gagal membuat token.';
+                        errEl.textContent = e.response?.data?.message || 'Gagal.';
                         errEl.classList.remove('hidden');
                     }
                 }},
@@ -797,70 +1123,78 @@ export class DashboardAdminPage extends BasePage {
         });
     }
 
-    // ── Tab Token Ujian ────────────────────────────────────────────────────────
+    // ── Tab Kelola Ruangan ──────────────────────────────────────────────────────
 
-    async _tabTokenUjian() {
+    async _tabRuangan() {
         this.contentArea.innerHTML = '';
-        this.contentArea.appendChild(this._header(
-            'TOKEN UJIAN', 'Buat token per mapel yang diminta siswa sebelum mengerjakan.',
-            'BUAT TOKEN UJIAN', () => this._modalTokenUjian()
-        ));
+        this.contentArea.appendChild(this._header('KELOLA RUANGAN', 'Tambah, edit, dan hapus master data ruangan fisik.', 'TAMBAH RUANGAN', () => this._modalRuangan(null)));
         const wrap = createElement('div', '');
         this.contentArea.appendChild(wrap);
         wrap.appendChild(this._loading());
 
         try {
-            const [tokensRes, examsRes] = await Promise.all([
-                api.get('/admin/exam-tokens'),
-                api.get('/admin/exams'),
-            ]);
-            this._examsList = examsRes.data?.data ?? [];
-            const tokens = tokensRes.data?.data ?? [];
+            const res = await api.get('/admin/rooms');
+            const rooms = res.data?.data ?? [];
             wrap.innerHTML = '';
 
             const cols = [
-                { key: 'token', label: 'Token Ujian', render: r => `<span class="font-mono font-bold text-accent-gold">${r.token}</span>` },
-                { key: 'exam',  label: 'Ujian', render: r => r.exam?.title ?? '-' },
-                { key: 'subject', label: 'Mapel', render: r => r.exam?.subject ?? '-' },
-                { key: 'createdAt', label: 'Dibuat', render: r => new Date(r.createdAt).toLocaleString('id-ID') },
+                { key: 'name',        label: 'Nama Ruangan', render: r => `<span class="font-mono font-bold text-accent-gold text-base">${r.name}</span>` },
+                { key: 'maxCapacity', label: 'Kapasitas Maksimal', render: r => `${r.maxCapacity} Siswa` },
+                { key: 'actions',     label: 'Aksi', render: r => `
+                    <div class="flex gap-sm" data-rid="${r.id}">
+                        <button class="r-edit material-icons text-text-muted hover:text-online text-lg">edit</button>
+                        <button class="r-del material-icons text-text-muted hover:text-primary text-lg">delete</button>
+                    </div>` },
             ];
-            wrap.appendChild(createTable(cols, tokens));
+            wrap.appendChild(createTable(cols, rooms, { emptyMessage: 'Belum ada ruangan.' }));
+            wrap.querySelectorAll('[data-rid]').forEach(el => {
+                const r = rooms.find(x => x.id === Number(el.dataset.rid));
+                el.querySelector('.r-edit').onclick = () => this._modalRuangan(r);
+                el.querySelector('.r-del').onclick  = () => this._confirmDelete(r, 'admin/rooms');
+            });
         } catch (_) {
             wrap.innerHTML = '';
-            wrap.appendChild(this._error('Gagal memuat Token Ujian.', () => this._tabTokenUjian()));
+            wrap.appendChild(this._error('Gagal memuat data ruangan.', () => this._tabRuangan()));
         }
     }
 
-    _modalTokenUjian() {
-        const exams = this._examsList || [];
+    _modalRuangan(existing = null) {
+        const isEdit = !!existing;
         createModal({
-            title: 'Buat Token Ujian',
+            title: isEdit ? 'Edit Ruangan' : 'Tambah Ruangan Baru',
             bodyHtml: `
                 <div class="flex flex-col gap-md">
                     <div>
-                        <label class="block font-inter font-bold text-input-label text-text-primary mb-sm uppercase tracking-label">Pilih Ujian</label>
-                        <select id="tu-exam" class="w-full px-md py-3 bg-bg-primary border border-gray-600 rounded-input text-text-primary font-inter">
-                            ${exams.map(e => `<option value="${e.id}">${e.title} (${e.subject})</option>`).join('')}
-                        </select>
+                        <label class="block font-inter font-bold text-input-label text-text-primary mb-sm uppercase tracking-label">Nama Ruangan (max 20 karakter)</label>
+                        <input id="rm-name" type="text" value="${isEdit ? existing.name : ''}" placeholder="cth. RUANG-14" maxlength="20" class="w-full px-md py-3 bg-bg-primary border border-gray-600 rounded-input text-text-primary font-inter uppercase">
                     </div>
                     <div>
-                        <label class="block font-inter font-bold text-input-label text-text-primary mb-sm uppercase tracking-label">Token (max 20 karakter)</label>
-                        <input id="tu-token" type="text" placeholder="cth. UJIAN02" maxlength="20" class="w-full px-md py-3 bg-bg-primary border border-gray-600 rounded-input text-text-primary font-inter uppercase">
+                        <label class="block font-inter font-bold text-input-label text-text-primary mb-sm uppercase tracking-label">Kapasitas Maksimal</label>
+                        <input id="rm-cap" type="number" min="1" value="${isEdit ? existing.maxCapacity : '36'}" class="w-full px-md py-3 bg-bg-primary border border-gray-600 rounded-input text-text-primary font-inter">
                     </div>
-                    <div id="tu-err" class="hidden text-primary text-sm font-inter"></div>
+                    <div id="rm-err" class="hidden text-primary text-sm font-inter"></div>
                 </div>`,
             footerButtons: [
                 { text: 'Batal', variant: 'secondary', onClick: close => close() },
-                { text: 'Buat Token', variant: 'primary', onClick: async (close, body) => {
-                    const examId = Number(body.querySelector('#tu-exam').value);
-                    const token  = body.querySelector('#tu-token').value.trim().toUpperCase();
-                    const errEl  = body.querySelector('#tu-err');
-                    if (!token) { errEl.textContent = 'Token wajib diisi.'; errEl.classList.remove('hidden'); return; }
+                { text: isEdit ? 'Simpan' : 'Buat', variant: 'primary', onClick: async (close, bodyEl) => {
+                    const name = bodyEl.querySelector('#rm-name').value.trim().toUpperCase();
+                    const maxCapacity = bodyEl.querySelector('#rm-cap').value;
+                    const errEl = bodyEl.querySelector('#rm-err');
+
+                    if (!name) { errEl.textContent = 'Nama ruangan wajib diisi.'; errEl.classList.remove('hidden'); return; }
+                    if (!maxCapacity || Number(maxCapacity) <= 0) { errEl.textContent = 'Kapasitas maksimal wajib berupa angka positif.'; errEl.classList.remove('hidden'); return; }
+
                     try {
-                        await api.post('/admin/exam-tokens', { examId, token });
-                        close(); this._tabTokenUjian();
+                        const payload = { name, maxCapacity: Number(maxCapacity) };
+                        if (isEdit) {
+                            await api.put(`/admin/rooms/${existing.id}`, payload);
+                        } else {
+                            await api.post('/admin/rooms', payload);
+                        }
+                        close();
+                        this._tabRuangan();
                     } catch (e) {
-                        errEl.textContent = e.response?.data?.message || 'Gagal membuat token.';
+                        errEl.textContent = e.response?.data?.message || 'Gagal menyimpan.';
                         errEl.classList.remove('hidden');
                     }
                 }},
@@ -877,13 +1211,8 @@ export class DashboardAdminPage extends BasePage {
             footerButtons: [
                 { text: 'Batal', variant: 'secondary', onClick: close => close() },
                 { text: 'Hapus', variant: 'primary', onClick: async (close) => {
-                    try {
-                        await api.delete(`/${path}/${item.id}`);
-                        close(); this._renderTab();
-                    } catch (e) {
-                        alert(e.response?.data?.message || 'Gagal menghapus.');
-                        close();
-                    }
+                    try { await api.delete(`/${path}/${item.id}`); close(); this._renderTab(); }
+                    catch (e) { showToast(e.response?.data?.message || 'Gagal menghapus.', 'error'); close(); }
                 }},
             ],
         });

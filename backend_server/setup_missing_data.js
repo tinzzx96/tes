@@ -10,12 +10,19 @@ async function setup() {
     const midnight = new Date(today);
     midnight.setHours(23, 59, 59, 999);
 
+    const room = await p.room.upsert({
+      where: { name: 'RUANG-14' },
+      update: {},
+      create: { name: 'RUANG-14', maxCapacity: 40 },
+    });
+
     const session = await p.session.upsert({
       where: { token: 'SESI01' },
-      update: { active: true, validUntil: midnight },
+      update: { active: true, validUntil: midnight, roomId: room.id },
       create: {
         token: 'SESI01',
         description: 'Token Sesi Hari Ini',
+        roomId: room.id,
         validFrom: new Date(today.setHours(0, 0, 0, 0)),
         validUntil: midnight,
         active: true,

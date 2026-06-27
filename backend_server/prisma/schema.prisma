@@ -35,23 +35,57 @@ enum QuestionType {
 
 // ─── Models ──────────────────────────────────────────────────────────────────
 
+// Tingkat kelas: X, XI, XII
+model Grade {
+  id        Int      @id @default(autoincrement())
+  name      String   @unique @db.VarChar(10)  // "X" | "XI" | "XII"
+  label     String   @db.VarChar(50)           // "Kelas X" | "Kelas XI" | "Kelas XII"
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  classes   Class[]
+
+  @@map("grades")
+}
+
+// Rombongan belajar (cth: XI RPL 1, XI TKJ 2)
+model Class {
+  id        Int      @id @default(autoincrement())
+  name      String   @unique @db.VarChar(50)  // "XI RPL 1"
+  gradeId   Int      @map("grade_id")
+  major     String?  @db.VarChar(50)           // "RPL" | "TKJ" | "MM"
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  grade       Grade       @relation(fields: [gradeId], references: [id])
+  users       User[]
+  examClasses ExamClass[]
+
+  @@map("classes")
+}
+
 model User {
   id        Int      @id @default(autoincrement())
   name      String   @db.VarChar(255)
   nisn      String   @unique @db.VarChar(20)
   password  String   @db.VarChar(255)
-  class     String?  @db.VarChar(20)
+  class     String?  @db.VarChar(20)    // legacy label, tetap ada
+  classId   Int?     @map("class_id")   // FK ke tabel classes
   device    String?  @db.VarChar(100)
-  room      String?  @db.VarChar(20)
+  room      String?  @db.VarChar(20)    // legacy room name
+  roomId    Int?     @map("room_id")    // FK ke master data room
   role      Role     @default(student)
   verified  Boolean  @default(false)
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  taughtExams      Exam[]         @relation("TeacherExams")
-  questionBanks    QuestionBank[] @relation("BankCreator")
-  examAttempts     ExamAttempt[]
-  answers          Answer[]
+  classRef      Class?         @relation(fields: [classId], references: [id], onDelete: SetNull)
+  roomRef       Room?          @relation(fields: [roomId], references: [id], onDelete: SetNull)
+  taughtExams   Exam[]         @relation("TeacherExams")
+  questionBanks QuestionBank[] @relation("BankCreator")
+  examAttempts  ExamAttempt[]
+  answers       Answer[]
+  proctorSessions Session[]    @relation("ProctorSessions")
 
   @@map("users")
 }
@@ -81,7 +115,6 @@ model Exam {
   durationMinutes Int        @default(90) @map("duration_minutes")
   startTime       DateTime   @map("start_time")
   endTime         DateTime   @map("end_time")
-  room            String     @db.VarChar(50)
   examCode        String     @unique @db.VarChar(20) @map("exam_code")
   token           String     @unique @db.VarChar(10)
   status          ExamStatus @default(draft)
@@ -93,8 +126,23 @@ model Exam {
   attempts     ExamAttempt[]
   answers      Answer[]
   examTokens   ExamToken[]
+  examClasses  ExamClass[]   // relasi ke pivot exam_classes
 
   @@map("exams")
+}
+
+// Pivot many-to-many: ujian ↔ kelas peserta
+model ExamClass {
+  id        Int      @id @default(autoincrement())
+  examId    Int      @map("exam_id")
+  classId   Int      @map("class_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  exam  Exam  @relation(fields: [examId], references: [id], onDelete: Cascade)
+  class Class @relation(fields: [classId], references: [id], onDelete: Cascade)
+
+  @@unique([examId, classId])
+  @@map("exam_classes")
 }
 
 model Question {
@@ -143,7 +191,7 @@ model ExamAttempt {
   finishedAt  DateTime?     @map("finished_at")
   score       Float?
   deviceId    String?       @db.VarChar(100) @map("device_id")
-  ipAddress   String?       @db.VarChar(45) @map("ip_address")
+  ipAddress   String?       @db.VarChar(45)  @map("ip_address")
 
   // ── Fitur Keamanan Anti-Curang ──────────────────────────────────────
   // Jumlah pelanggaran (misal: lepas screen pinning). Auto-submit saat >= 5.
@@ -179,31 +227,49 @@ model ExamToken {
   @@map("exam_tokens")
 }
 
+model Room {
+  id          Int       @id @default(autoincrement())
+  name        String    @unique @db.VarChar(50)
+  maxCapacity Int       @map("max_capacity")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  users       User[]
+  sessions    Session[]
+
+  @@map("rooms")
+}
+
 // Token sesi login — divalidasi SEKALI saat login, dikelola admin.
 // Menghindari siswa login di luar lingkungan ujian yang terkontrol.
 model Session {
   id          Int       @id @default(autoincrement())
   token       String    @unique @db.VarChar(20)
   description String?   @db.VarChar(255)
+  roomId      Int       @map("room_id")
+  proctorId   Int?      @map("proctor_id")
   validFrom   DateTime? @map("valid_from")
   validUntil  DateTime? @map("valid_until")
   active      Boolean   @default(true)
   createdAt   DateTime  @default(now()) @map("created_at")
 
+  room        Room      @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  proctor     User?     @relation("ProctorSessions", fields: [proctorId], references: [id], onDelete: SetNull)
+
   @@map("sessions")
 }
 
 model Answer {
-  id            Int      @id @default(autoincrement())
-  userId        Int      @map("user_id")
-  examId        Int      @map("exam_id")
-  questionId    Int      @map("question_id")
-  attemptId     Int      @map("attempt_id")
-  optionId      Int?     @map("option_id")
-  essayAnswer   String?  @db.Text @map("essay_answer")
-  savedAt       DateTime? @map("saved_at")
-  createdAt     DateTime @default(now()) @map("created_at")
-  updatedAt     DateTime @updatedAt @map("updated_at")
+  id          Int       @id @default(autoincrement())
+  userId      Int       @map("user_id")
+  examId      Int       @map("exam_id")
+  questionId  Int       @map("question_id")
+  attemptId   Int       @map("attempt_id")
+  optionId    Int?      @map("option_id")
+  essayAnswer String?   @db.Text @map("essay_answer")
+  savedAt     DateTime? @map("saved_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
 
   user     User        @relation(fields: [userId], references: [id], onDelete: Cascade)
   exam     Exam        @relation(fields: [examId], references: [id], onDelete: Cascade)

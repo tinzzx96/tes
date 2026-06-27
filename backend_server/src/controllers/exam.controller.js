@@ -1,21 +1,67 @@
+// backend_server/src/controllers/exam.controller.js
+// REPLACE FILE INI SEPENUHNYA
+// Perubahan kunci: listExams sekarang filter via exam_classes berdasarkan
+// class_id siswa + rentang waktu aktif + tingkat (grade) sesuai kelas siswa.
+
 const prisma = require('../config/database');
 const { ok, notFound, badRequest, forbidden } = require('../utils/response');
 const { calculateScore } = require('../utils/scoring');
 
+// ─── listExams: hanya tampilkan ujian yang class_id siswa terdaftar ────────────
 async function listExams(req, res, next) {
   try {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-
     const userId = req.user.id;
+    const now    = new Date();
 
-    const [exams, attempts] = await Promise.all([
-      prisma.exam.findMany({
-        where: { startTime: { gte: today, lt: tomorrow }, status: { not: 'draft' } },
-        include: { teacher: { select: { id: true, name: true } } },
-        orderBy: { startTime: 'asc' },
+    // Ambil data user termasuk class_id dan grade untuk validasi tingkat
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        classId: true,
+        classRef: { select: { id: true, name: true, gradeId: true, grade: { select: { id: true, name: true } } } },
+      },
+    });
+
+    // Fallback: jika siswa belum dipetakan ke class, gunakan logika lama (hari ini saja)
+    if (!user?.classId) {
+      const today    = new Date(); today.setHours(0, 0, 0, 0);
+      const tomorrow = new Date(today); tomorrow.setDate(tomorrow.getDate() + 1);
+
+      const [exams, attempts] = await Promise.all([
+        prisma.exam.findMany({
+          where: { startTime: { gte: today, lt: tomorrow }, status: { not: 'draft' } },
+          include: { teacher: { select: { id: true, name: true } } },
+          orderBy: { startTime: 'asc' },
+        }),
+        prisma.examAttempt.findMany({
+          where: { userId },
+          select: { examId: true, status: true, score: true, startedAt: true, finishedAt: true, counterPelanggaran: true },
+        }),
+      ]);
+      const attemptMap = Object.fromEntries(attempts.map(a => [a.examId, a]));
+      return ok(res, exams.map(e => formatExam(e, attemptMap[e.id])));
+    }
+
+    // ── Filter berdasarkan class_id siswa dan rentang waktu ──────────────────
+    // Ambil ujian yang:
+    // 1. Punya entri di exam_classes dengan class_id === siswa
+    // 2. endTime masih di masa depan (ujian belum expired) ATAU startTime hari ini
+    // 3. Status bukan draft
+    const [examClasses, attempts] = await Promise.all([
+      prisma.examClass.findMany({
+        where: { 
+          classId: user.classId,
+          exam: {
+            status: { not: 'draft' },
+            endTime: { gte: now },
+          }
+        },
+        include: {
+          exam: {
+            include: { teacher: { select: { id: true, name: true } } },
+          },
+        },
       }),
       prisma.examAttempt.findMany({
         where: { userId },
@@ -24,8 +70,14 @@ async function listExams(req, res, next) {
     ]);
 
     const attemptMap = Object.fromEntries(attempts.map(a => [a.examId, a]));
-    const result = exams.map(e => formatExam(e, attemptMap[e.id]));
-    return ok(res, result);
+
+    // Filter hanya yang exam-nya valid (exam bisa null kalau filtered out oleh where di atas)
+    const exams = examClasses
+      .filter(ec => ec.exam !== null)
+      .map(ec => ec.exam)
+      .sort((a, b) => a.startTime - b.startTime);
+
+    return ok(res, exams.map(e => formatExam(e, attemptMap[e.id])));
   } catch (e) { next(e); }
 }
 
@@ -46,6 +98,16 @@ async function getExam(req, res, next) {
     ]);
 
     if (!exam) return notFound(res);
+
+    // Validasi akses: class siswa harus terdaftar di exam_classes (jika ada mapping)
+    const user = await prisma.user.findUnique({ where: { id: userId }, select: { classId: true } });
+    if (user?.classId) {
+      const hasAccess = await prisma.examClass.findFirst({
+        where: { examId, classId: user.classId },
+      });
+      if (!hasAccess) return forbidden(res, 'Anda tidak memiliki akses ke ujian ini.');
+    }
+
     return ok(res, formatExam(exam, attempt, true));
   } catch (e) { next(e); }
 }
@@ -59,7 +121,7 @@ async function startExam(req, res, next) {
     if (!exam) return notFound(res, 'Ujian tidak ditemukan.');
     if (exam.status !== 'active') return forbidden(res, 'Ujian belum aktif.');
 
-    const ip = req.headers['x-forwarded-for']?.split(',')[0] || req.socket.remoteAddress;
+    const ip       = req.headers['x-forwarded-for']?.split(',')[0] || req.socket.remoteAddress;
     const deviceId = req.body.device_id || req.user.device;
 
     const existing = await prisma.examAttempt.findUnique({
@@ -70,23 +132,16 @@ async function startExam(req, res, next) {
       return badRequest(res, 'Ujian sudah dikumpulkan.');
     }
 
-    let attempt;
-    if (!existing) {
-      attempt = await prisma.examAttempt.create({
-        data: { userId, examId, status: 'started', startedAt: new Date(), deviceId, ipAddress: ip },
-      });
-    } else if (existing.status === 'waiting') {
-      // Sudah dibuat oleh /exam-tokens/validate, sekarang di-start
-      attempt = await prisma.examAttempt.update({
-        where: { id: existing.id },
-        data: { status: 'started', startedAt: new Date(), deviceId, ipAddress: ip },
-      });
-    } else {
-      // status === 'started' — sudah berjalan, kembalikan info yang ada
-      attempt = existing;
-    }
+    const attempt = existing
+      ? await prisma.examAttempt.update({
+          where: { id: existing.id },
+          data: { status: 'started', startedAt: existing.startedAt ?? new Date(), ipAddress: ip, deviceId },
+        })
+      : await prisma.examAttempt.create({
+          data: { userId, examId, status: 'started', startedAt: new Date(), ipAddress: ip, deviceId },
+        });
 
-    return ok(res, { message: 'Ujian dimulai.', startedAt: attempt.startedAt, attemptId: attempt.id });
+    return ok(res, { attemptId: attempt.id, startedAt: attempt.startedAt });
   } catch (e) { next(e); }
 }
 
@@ -101,18 +156,16 @@ async function getTimer(req, res, next) {
     ]);
 
     if (!exam) return notFound(res, 'Ujian tidak ditemukan.');
-    if (!attempt?.startedAt) return forbidden(res, 'Ujian belum dimulai.');
 
-    const endAt = new Date(attempt.startedAt.getTime() + exam.durationMinutes * 60_000);
-    const remainingSeconds = Math.max(0, Math.floor((endAt - Date.now()) / 1000));
+    const now           = Date.now();
+    const examEndMs     = exam.endTime.getTime();
+    const startedAtMs   = attempt?.startedAt?.getTime() ?? now;
+    const durationMs    = exam.durationMinutes * 60 * 1000;
+    const attemptEndMs  = startedAtMs + durationMs;
+    const effectiveEnd  = Math.min(examEndMs, attemptEndMs);
+    const remainingSec  = Math.max(0, Math.round((effectiveEnd - now) / 1000));
 
-    return ok(res, {
-      startedAt: attempt.startedAt,
-      endAt: endAt.toISOString(),
-      remainingSeconds,
-      durationMinutes: exam.durationMinutes,
-      counterPelanggaran: attempt.counterPelanggaran,
-    });
+    return ok(res, { remainingSeconds: remainingSec, endTime: new Date(effectiveEnd).toISOString() });
   } catch (e) { next(e); }
 }
 
@@ -121,11 +174,8 @@ async function submitExam(req, res, next) {
     const userId = req.user.id;
     const examId = +req.params.examId;
 
-    const attempt = await prisma.examAttempt.findUnique({
-      where: { userId_examId: { userId, examId } },
-    });
-
-    if (!attempt) return badRequest(res, 'Ujian belum dimulai.');
+    const attempt = await prisma.examAttempt.findUnique({ where: { userId_examId: { userId, examId } } });
+    if (!attempt) return notFound(res, 'Attempt tidak ditemukan.');
     if (attempt.status === 'submitted') return badRequest(res, 'Ujian sudah dikumpulkan.');
 
     const exam = await prisma.exam.findUnique({
@@ -141,6 +191,21 @@ async function submitExam(req, res, next) {
       where: { id: attempt.id },
       data: { status: 'submitted', finishedAt: new Date(), score },
     });
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { room: true, roomId: true },
+    });
+
+    const { emitStudentStatusChanged } = require('../socket');
+    if (user?.room) {
+      emitStudentStatusChanged(user.room, {
+        studentId: `stu_${userId}`,
+        status: 'submitted',
+        progress: questions.length,
+        roomId: user.roomId,
+      });
+    }
 
     return ok(res, { message: 'Ujian berhasil dikumpulkan.', score, totalQuestions, correctAnswers });
   } catch (e) { next(e); }
@@ -171,8 +236,7 @@ async function getResult(req, res, next) {
   } catch (e) { next(e); }
 }
 
-// ─── Helper ──────────────────────────────────────────────────────────────────
-// Murni sinkron — tidak query DB sendiri. Attempt sudah di-batch di caller.
+// ─── Helper ───────────────────────────────────────────────────────────────────
 function formatExam(exam, attempt, withDetail = false) {
   const base = {
     id: exam.id,
@@ -182,7 +246,6 @@ function formatExam(exam, attempt, withDetail = false) {
     durationMinutes: exam.durationMinutes,
     startTime: exam.startTime,
     endTime: exam.endTime,
-    room: exam.room,
     examCode: exam.examCode,
     status: exam.status,
     attemptStatus: attempt?.status ?? 'waiting',

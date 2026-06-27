@@ -56,7 +56,7 @@ class _ExamTokenDialogState extends State<ExamTokenDialog> {
     });
 
     final result = await ExamTokenRepository.validate(
-      examId: widget.examId,
+      examId: int.parse(widget.examId),
       enteredToken: _controller.text,
     );
 

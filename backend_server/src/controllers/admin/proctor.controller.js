@@ -1,7 +1,7 @@
 // src/controllers/admin/proctor.controller.js
 // ════════════════════════════════════════════════════════════════════════════
 // Kelola akun Proktor/Pengawas.
-// Proktor terikat ke satu room (field `room` di tabel users).
+// Proktor terikat ke satu room (tabel rooms).
 // Endpoint: /api/admin/proctors
 // ════════════════════════════════════════════════════════════════════════════
 
@@ -9,6 +9,7 @@ const prisma  = require('../../config/database');
 const bcrypt  = require('bcryptjs');
 const { ok, created, notFound, badRequest, forbidden } = require('../../utils/response');
 const { body, validationResult } = require('express-validator');
+const logger  = require('../../utils/logger');
 
 // ── List semua proktor ────────────────────────────────────────────────────────
 async function listProctors(req, res, next) {
@@ -17,7 +18,7 @@ async function listProctors(req, res, next) {
       where: { role: 'proctor' },
       select: {
         id: true, name: true, nisn: true,
-        room: true, verified: true,
+        room: true, roomId: true, verified: true,
         createdAt: true,
       },
       orderBy: { name: 'asc' },
@@ -32,15 +33,29 @@ async function createProctor(req, res, next) {
     const errs = validationResult(req);
     if (!errs.isEmpty()) return badRequest(res, 'Validasi gagal.', errs.array());
 
-    const { name, nisn, password, room } = req.body;
+    const { name, nisn, password, roomId } = req.body;
 
     const exists = await prisma.user.findUnique({ where: { nisn } });
     if (exists) return badRequest(res, `NISN/NIP ${nisn} sudah terdaftar.`);
 
+    let roomName = null;
+    if (roomId) {
+      const rm = await prisma.room.findUnique({ where: { id: Number(roomId) } });
+      if (rm) roomName = rm.name;
+    }
+
     const hashed = await bcrypt.hash(password || 'proktor123', 12);
     const proctor = await prisma.user.create({
-      data: { name, nisn, password: hashed, role: 'proctor', room, verified: true },
-      select: { id: true, name: true, nisn: true, room: true, verified: true },
+      data: {
+        name,
+        nisn,
+        password: hashed,
+        role: 'proctor',
+        roomId: roomId ? Number(roomId) : null,
+        room: roomName,
+        verified: true,
+      },
+      select: { id: true, name: true, nisn: true, roomId: true, room: true, verified: true },
     });
     return created(res, proctor, 'Akun proktor berhasil dibuat.');
   } catch (e) { next(e); }
@@ -52,16 +67,26 @@ async function updateProctor(req, res, next) {
     const proctor = await prisma.user.findUnique({ where: { id: +req.params.id } });
     if (!proctor || proctor.role !== 'proctor') return notFound(res, 'Proktor tidak ditemukan.');
 
-    const { name, room, password, verified } = req.body;
+    const { name, roomId, password, verified } = req.body;
     const data = {};
     if (name     !== undefined) data.name     = name;
-    if (room     !== undefined) data.room     = room;
     if (verified !== undefined) data.verified = verified;
     if (password) data.password = await bcrypt.hash(password, 12);
 
+    if (roomId !== undefined) {
+      data.roomId = roomId ? Number(roomId) : null;
+      if (roomId) {
+        const rm = await prisma.room.findUnique({ where: { id: Number(roomId) } });
+        data.room = rm ? rm.name : null;
+      } else {
+        data.room = null;
+      }
+    }
+
     const updated = await prisma.user.update({
-      where: { id: +req.params.id }, data,
-      select: { id: true, name: true, nisn: true, room: true, verified: true },
+      where: { id: +req.params.id },
+      data,
+      select: { id: true, name: true, nisn: true, roomId: true, room: true, verified: true },
     });
     return ok(res, updated, 'Proktor diperbarui.');
   } catch (e) { next(e); }
@@ -79,20 +104,19 @@ async function deleteProctor(req, res, next) {
 }
 
 // ── List exam yang sesuai room proktor ────────────────────────────────────────
-// Proktor hanya bisa lihat ujian yang room-nya sama dengan room dia.
 async function listProctorExams(req, res, next) {
   try {
     const userId = req.user.id;
-    const user   = await prisma.user.findUnique({ where: { id: userId }, select: { room: true } });
+    const user   = await prisma.user.findUnique({ where: { id: userId }, select: { room: true, roomId: true } });
 
     if (!user?.room) return ok(res, [], 'Proktor belum memiliki ruang yang ditugaskan.');
 
+    // List all exams because they are no longer restricted to a specific room at creation time
     const exams = await prisma.exam.findMany({
-      where: { room: user.room },
       select: {
         id: true, title: true, subject: true,
-        room: true, status: true, startTime: true, endTime: true,
-        durationMinutes: true,
+        status: true, startTime: true, endTime: true,
+        durationMinutes: true, token: true,
         teacher: { select: { name: true } },
       },
       orderBy: { startTime: 'asc' },
@@ -107,7 +131,6 @@ async function listProctorExams(req, res, next) {
 }
 
 // ── Monitoring: peserta ujian (filter by room proktor) ────────────────────────
-// Override getParticipants — proktor hanya lihat peserta di ruangnya.
 async function getProctorParticipants(req, res, next) {
   try {
     const examId  = +req.params.examId;
@@ -117,21 +140,24 @@ async function getProctorParticipants(req, res, next) {
     const exam = await prisma.exam.findUnique({ where: { id: examId } });
     if (!exam) return notFound(res, 'Ujian tidak ditemukan.');
 
-    // Proktor: validasi room ujian === room proktor
+    let whereClause = { examId };
+
+    // Proktor: filter peserta yang berada di ruangan yang sama dengan proktor
     if (role === 'proctor') {
-      const proctor = await prisma.user.findUnique({ where: { id: userId }, select: { room: true } });
-      if (!proctor?.room || proctor.room !== exam.room) {
-        return forbidden(res, `Kamu hanya bisa monitoring ruang ${proctor?.room || '(belum diset)'}. Ujian ini ada di ruang ${exam.room}.`);
+      const proctor = await prisma.user.findUnique({ where: { id: userId }, select: { roomId: true } });
+      if (!proctor?.roomId) {
+        return forbidden(res, 'Kamu belum memiliki ruang yang ditugaskan untuk melakukan monitoring.');
       }
+      whereClause.user = { roomId: proctor.roomId };
     }
 
     const OFFLINE_MS = 90_000;
     const now        = Date.now();
 
     const attempts = await prisma.examAttempt.findMany({
-      where: { examId },
+      where: whereClause,
       include: {
-        user:    { select: { id: true, name: true, nisn: true, class: true, room: true, device: true } },
+        user:    { select: { id: true, name: true, nisn: true, class: true, room: true, roomId: true, device: true } },
         answers: { select: { id: true } },
       },
       orderBy: { user: { name: 'asc' } },
@@ -154,6 +180,8 @@ async function getProctorParticipants(req, res, next) {
         progress:           a.answers.length,
         counterPelanggaran: a.counterPelanggaran,
         isBlocked:          !!(a.unlockPin && a.status === 'started'),
+        unlockPin:          a.unlockPin,
+        examAttemptId:      a.id,
         lastSeen:           a.updatedAt.toISOString(),
         score:              a.score,
       };
@@ -169,21 +197,108 @@ async function getProctorParticipants(req, res, next) {
     };
 
     return ok(res, {
-      exam:         { id: exam.id, title: exam.title, room: exam.room, status: exam.status },
+      exam:         { id: exam.id, title: exam.title, status: exam.status },
       participants,
       summary,
     });
   } catch (e) { next(e); }
 }
 
+async function resetStudentSession(req, res, next) {
+  try {
+    const examId = +req.params.examId;
+    const userId = +req.params.userId;
+    const proctorId = req.user.id;
+    const role = req.user.role;
+
+    // 1. Verify exam exists
+    const exam = await prisma.exam.findUnique({ where: { id: examId } });
+    if (!exam) return notFound(res, 'Ujian tidak ditemukan.');
+
+    // 2. Find the student
+    const student = await prisma.user.findUnique({ where: { id: userId } });
+    if (!student) return notFound(res, 'Siswa tidak ditemukan.');
+
+    // 3. If user is proctor, verify student is in proctor's room
+    if (role === 'proctor') {
+      const proctor = await prisma.user.findUnique({ where: { id: proctorId }, select: { roomId: true } });
+      if (!proctor?.roomId || proctor.roomId !== student.roomId) {
+        return forbidden(res, 'Kamu hanya bisa me-reset siswa di ruanganmu sendiri.');
+      }
+    }
+
+    // 4. Reset student device
+    await prisma.user.update({
+      where: { id: userId },
+      data: { device: null, verified: true },
+    });
+
+    // 5. Reset exam attempt for this specific exam
+    const attempt = await prisma.examAttempt.findUnique({
+      where: { userId_examId: { userId, examId } },
+    });
+
+    if (attempt) {
+      await prisma.examAttempt.update({
+        where: { id: attempt.id },
+        data: {
+          status: 'started',
+          finishedAt: null,
+          score: null,
+          unlockPin: null,
+          counterPelanggaran: 0,
+        },
+      });
+    } else {
+      await prisma.examAttempt.create({
+        data: {
+          userId,
+          examId,
+          status: 'started',
+          startedAt: new Date(),
+          finishedAt: null,
+          score: null,
+          unlockPin: null,
+          counterPelanggaran: 0,
+        },
+      });
+    }
+
+    // Audit Log for Reset Sesi murid
+    logger.info(`[AUDIT] Proctor ID: ${proctorId} reset student session for NISN: ${student.nisn} (Student ID: ${userId}) on Exam ID: ${examId}`);
+
+    // 6. Emit real-time WebSocket events
+    const { getIo, emitStudentStatusChanged } = require('../../socket');
+    const io = getIo();
+    if (io) {
+      const roomName = student.room;
+      if (roomName) {
+        // Emit to the room to notify the student device to reload their exam list/status
+        io.to(`room:${roomName}`).emit('student-reset', { studentId: `stu_${userId}` });
+        
+        // Emit status update to the proctor monitoring UI
+        emitStudentStatusChanged(roomName, {
+          studentId: `stu_${userId}`,
+          status: 'online',
+          progress: attempt ? await prisma.answer.count({ where: { attemptId: attempt.id } }) : 0,
+          isBlocked: false,
+          counterPelanggaran: 0,
+        });
+      }
+    }
+
+    return ok(res, null, 'Sesi siswa berhasil di-reset.');
+  } catch (e) { next(e); }
+}
+
 const createRules = [
   body('name').trim().notEmpty().withMessage('Nama wajib diisi.'),
   body('nisn').trim().notEmpty().withMessage('NISN/NIP wajib diisi.'),
-  body('room').trim().notEmpty().withMessage('Ruang wajib diisi.'),
+  body('roomId').isInt().withMessage('Ruang wajib dipilih.'),
 ];
 
 module.exports = {
   listProctors, createProctor, updateProctor, deleteProctor,
-  listProctorExams, getProctorParticipants,
+  listProctorExams, getProctorParticipants, resetStudentSession,
   createRules,
 };

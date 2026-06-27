@@ -9,6 +9,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../config/api_config.dart';
+import '../models/exam_schedule.dart';
 import 'auth_repository.dart';
 
 class ExamScheduleRepository {
@@ -36,53 +37,4 @@ class ExamScheduleRepository {
     throw Exception(
         data['error']?['message'] ?? 'Gagal memuat jadwal ujian.');
   }
-}
-
-// ── Model ─────────────────────────────────────────────────────────────────────
-class ExamSchedule {
-  final int id;
-  final String title;
-  final String subject;
-  final String? teacher;
-  final int durationMinutes;
-  final DateTime startTime;
-  final DateTime endTime;
-  final String room;
-  final String examCode;
-  final String status;       // draft | active | completed
-  final String attemptStatus; // waiting | started | submitted
-  final double? score;
-
-  const ExamSchedule({
-    required this.id,
-    required this.title,
-    required this.subject,
-    this.teacher,
-    required this.durationMinutes,
-    required this.startTime,
-    required this.endTime,
-    required this.room,
-    required this.examCode,
-    required this.status,
-    required this.attemptStatus,
-    this.score,
-  });
-
-  bool get isCompleted => attemptStatus == 'submitted';
-  bool get isActive => status == 'active';
-
-  factory ExamSchedule.fromJson(Map<String, dynamic> json) => ExamSchedule(
-        id: json['id'] as int,
-        title: json['title'] ?? '',
-        subject: json['subject'] ?? '',
-        teacher: json['teacher'],
-        durationMinutes: json['durationMinutes'] ?? 90,
-        startTime: DateTime.parse(json['startTime']),
-        endTime: DateTime.parse(json['endTime']),
-        room: json['room'] ?? '',
-        examCode: json['examCode'] ?? '',
-        status: json['status'] ?? 'draft',
-        attemptStatus: json['attemptStatus'] ?? 'waiting',
-        score: (json['score'] as num?)?.toDouble(),
-      );
 }

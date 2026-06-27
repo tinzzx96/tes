@@ -16,13 +16,12 @@ async function validateExamToken(req, res, next) {
     const { examId, token } = req.body;
     const examIdInt = +examId;
 
-    // Cari token di exam_tokens
-    const examToken = await prisma.examToken.findUnique({
-      where: { examId_token: { examId: examIdInt, token: token.toUpperCase().trim() } },
-      include: { exam: { select: { id: true, status: true } } },
+    // Cari exam dengan examId dan token yang sesuai
+    const exam = await prisma.exam.findUnique({
+      where: { id: examIdInt },
     });
 
-    if (!examToken) {
+    if (!exam || exam.token.toUpperCase().trim() !== token.toUpperCase().trim()) {
       return res.status(422).json({
         success: false,
         error: {
@@ -32,7 +31,7 @@ async function validateExamToken(req, res, next) {
       });
     }
 
-    if (examToken.exam.status !== 'active') {
+    if (exam.status !== 'active') {
       return res.status(422).json({
         success: false,
         error: {

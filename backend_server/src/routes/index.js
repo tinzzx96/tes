@@ -1,8 +1,4 @@
 // src/routes/index.js
-// ════════════════════════════════════════════════════════════════════════════
-// GANTI SELURUH FILE INI — tambah routes proktor
-// ════════════════════════════════════════════════════════════════════════════
-
 const router = require('express').Router();
 const { authenticate } = require('../middleware/auth');
 const { requireRole }  = require('../middleware/role');
@@ -15,7 +11,7 @@ router.use('/security',      require('./security.routes'));
 router.use('/monitor',       require('./monitor.routes'));
 router.use('/device',        require('./device.routes'));
 
-// Teacher routes (teacher + admin)
+// Teacher routes
 router.use('/teacher/exams',
   authenticate, requireRole('teacher', 'admin'),
   require('./teacher/exams.routes')
@@ -42,18 +38,24 @@ router.use('/admin/sessions',
   authenticate, requireRole('admin'),
   require('./admin/sessions.routes')
 );
-router.use('/admin/exam-tokens',
-  authenticate, requireRole('admin', 'teacher'),
-  require('./admin/examTokens.routes')
+router.use('/admin/rooms',
+  authenticate, requireRole('admin'),
+  require('./admin/rooms.routes')
 );
-
-// ── Proktor: kelola akun (admin only) ─────────────────────────────────────────
+router.use('/admin/classes',
+  authenticate, requireRole('admin'),
+  require('./admin/classes.routes')
+);
+// ── Import siswa via Excel ────────────────────────────────────────────────────
+router.use('/admin/import',
+  authenticate, requireRole('admin'),
+  require('./admin/importSiswa.routes')
+);
+// ── Proktor ───────────────────────────────────────────────────────────────────
 router.use('/admin/proctors',
   authenticate, requireRole('admin'),
   require('./admin/proctor.routes')
 );
-
-// ── Proktor: akses monitoring ruangnya sendiri ────────────────────────────────
 router.use('/proctor',
   authenticate, requireRole('proctor', 'admin'),
   require('./admin/proctor.routes')

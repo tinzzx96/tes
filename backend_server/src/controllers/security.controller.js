@@ -29,7 +29,7 @@ async function reportViolation(req, res, next) {
     const attempt = await prisma.examAttempt.findUnique({
       where: { id: attemptId },
       include: {
-        user: { select: { id: true, name: true, room: true } },
+        user: { select: { id: true, name: true, room: true, roomId: true } },
         exam: { select: { id: true, subject: true, questionBankId: true } },
       },
     });
@@ -60,6 +60,17 @@ async function reportViolation(req, res, next) {
         },
       });
 
+      const { emitStudentStatusChanged } = require('../socket');
+      if (attempt.user?.room) {
+        emitStudentStatusChanged(attempt.user.room, {
+          studentId: `stu_${userId}`,
+          status: 'submitted',
+          isBlocked: false,
+          counterPelanggaran: newCount,
+          roomId: attempt.user.roomId,
+        });
+      }
+
       return ok(res, {
         action: 'AUTO_SUBMIT_DISQUALIFIED',
         counterPelanggaran: newCount,
@@ -75,13 +86,25 @@ async function reportViolation(req, res, next) {
 
     // Push PIN ke room pengawas (PRD Bagian 42, API Contract Bagian 7)
     const roomName = attempt.user?.room;
+    const roomId = attempt.user?.roomId;
     if (roomName) {
       emitPinGenerated(roomName, {
+        studentId: attempt.user.id,
         examAttemptId: attempt.id,
         studentName: attempt.user.name,
         pin: unlockPin,
         subjectName: attempt.exam.subject,
         timestamp: new Date().toISOString(),
+        roomId,
+      });
+
+      const { emitStudentStatusChanged } = require('../socket');
+      emitStudentStatusChanged(roomName, {
+        studentId: `stu_${userId}`,
+        status: 'online',
+        isBlocked: true,
+        counterPelanggaran: newCount,
+        roomId,
       });
     }
 
@@ -128,6 +151,20 @@ async function verifyUnlock(req, res, next) {
       where: { id: attempt.id },
       data: { unlockPin: null },
     });
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { room: true, roomId: true },
+    });
+    if (user?.room) {
+      const { emitStudentStatusChanged } = require('../socket');
+      emitStudentStatusChanged(user.room, {
+        studentId: `stu_${userId}`,
+        status: 'online',
+        isBlocked: false,
+        roomId: user.roomId,
+      });
+    }
 
     return ok(res, { unlocked: true });
   } catch (e) { next(e); }

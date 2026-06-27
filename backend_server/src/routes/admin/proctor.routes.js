@@ -9,9 +9,10 @@
 const router = require('express').Router();
 const {
   listProctors, createProctor, updateProctor, deleteProctor,
-  listProctorExams, getProctorParticipants,
+  listProctorExams, getProctorParticipants, resetStudentSession,
   createRules,
 } = require('../../controllers/admin/proctor.controller');
+const { resetToken } = require('../../controllers/admin/exams.controller');
 
 // ── Admin: CRUD proktor ───────────────────────────────────────────────────────
 router.get('/',      listProctors);
@@ -22,5 +23,7 @@ router.delete('/:id',deleteProctor);
 // ── Proktor: exam di ruangnya + monitoring ────────────────────────────────────
 router.get('/my-exams',                    listProctorExams);
 router.get('/exam/:examId/participants',   getProctorParticipants);
+router.post('/exam/:examId/reset/:userId', resetStudentSession);
+router.post('/exam/:id/reset-token',       resetToken);
 
 module.exports = router;

@@ -143,7 +143,7 @@ export class LoginPage extends BasePage {
         const token    = this.tokenInput.value.trim();
 
         if (!nisn || !password || !token) {
-            alert('Semua field harus diisi!');
+            showToast('Semua field harus diisi!', 'warning');
             return;
         }
 
@@ -159,7 +159,7 @@ export class LoginPage extends BasePage {
             window.app.router.navigate(authService.getHomePath());
 
         } catch (err) {
-            alert(err.message || 'Login gagal. Periksa NISN, password, dan Token Sesi.');
+            showToast(err.message || 'Login gagal. Periksa NISN, password, dan Token Sesi.', 'error');
         } finally {
             if (btn) { btn.disabled = false; btn.textContent = 'MASUK'; }
         }

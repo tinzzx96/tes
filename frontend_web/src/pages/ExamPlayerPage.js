@@ -73,6 +73,30 @@ export class ExamPlayerPage extends BasePage {
 
     mounted() {
         this._initExam();
+        this._connectSocket();
+    }
+
+    _connectSocket() {
+        try {
+            if (typeof io === 'undefined') return;
+            const token = authService.getToken();
+            const BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api').replace('/api', '');
+            this._socket = io(BASE_URL, { auth: { token } });
+
+            const user = authService.getCurrentUser();
+            if (user?.room || user?.roomId) {
+                this._socket.emit('join-room', { roomName: user.room, roomId: user.roomId });
+            }
+
+            this._socket.on('exam-status-changed', ({ examId, status }) => {
+                if (Number(examId) === this.examId && status === 'completed') {
+                    showToast('Ujian telah ditutup oleh pengawas. Jawaban Anda akan dikirim otomatis.', 'warning');
+                    this._submitExam();
+                }
+            });
+        } catch (_) {
+            // Silently fail
+        }
     }
 
     beforeUnmount() {
@@ -80,6 +104,10 @@ export class ExamPlayerPage extends BasePage {
         if (this.serverSyncInterval) clearInterval(this.serverSyncInterval);
         if (this.heartbeatInterval)  clearInterval(this.heartbeatInterval);
         if (this.autoSaveTimeout)    clearTimeout(this.autoSaveTimeout);
+        if (this._socket) {
+            this._socket.disconnect();
+            this._socket = null;
+        }
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -562,7 +590,7 @@ export class ExamPlayerPage extends BasePage {
 
     _onTimerExpired() {
         this._updateBottomBar();
-        window.alert('Waktu ujian telah habis. Jawaban Anda akan dikirim otomatis.');
+        showToast('Waktu ujian telah habis. Jawaban Anda akan dikirim otomatis.', 'warning');
         this._submitExam();
     }
 
@@ -595,7 +623,7 @@ export class ExamPlayerPage extends BasePage {
         try {
             await api.submitExam(this.examId);
         } catch (err) {
-            window.alert(`Gagal mengirim jawaban: ${err.response?.data?.error?.message || err.message}. Coba lagi.`);
+            showToast(`Gagal mengirim jawaban: ${err.response?.data?.error?.message || err.message}. Coba lagi.`, 'error');
             return;
         }
 

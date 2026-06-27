@@ -6,6 +6,19 @@ const prisma = new PrismaClient();
 async function main() {
   console.log('Seeding database ExamPoncol...');
 
+  // ── Rooms ──────────────────────────────────────────────────────────────────
+  const room14 = await prisma.room.upsert({
+    where: { name: 'RUANG-14' },
+    update: {},
+    create: { name: 'RUANG-14', maxCapacity: 40 },
+  });
+
+  const lab1 = await prisma.room.upsert({
+    where: { name: 'LAB-1' },
+    update: {},
+    create: { name: 'LAB-1', maxCapacity: 30 },
+  });
+
   // ── Admin ──────────────────────────────────────────────────────────────────
   const adminPassword = await bcrypt.hash('admin123', 12);
   const admin = await prisma.user.upsert({
@@ -31,6 +44,7 @@ async function main() {
       password: teacherPassword,
       role: 'teacher',
       room: 'RUANG-14',
+      roomId: room14.id,
       verified: true,
     },
   });
@@ -46,6 +60,7 @@ async function main() {
       password: proctorPassword,
       role: 'proctor',
       room: 'RUANG-14',
+      roomId: room14.id,
       verified: true,
     },
   });
@@ -53,11 +68,11 @@ async function main() {
   // ── Siswa ──────────────────────────────────────────────────────────────────
   const studentPassword = await bcrypt.hash('siswa123', 12);
   const students = [
-    { name: 'Danang Prakoso', nisn: '0023456794', class: 'XI RPL 1', room: 'RUANG-14' },
-    { name: 'Ujang Saputra', nisn: '0023456790', class: 'XI RPL 1', room: 'RUANG-14' },
-    { name: 'Asep Permana', nisn: '0023456791', class: 'XI RPL 1', room: 'RUANG-14' },
-    { name: 'Marlino Wijaya', nisn: '0023456792', class: 'XI RPL 1', room: 'RUANG-14' },
-    { name: 'Dedi Kurniawan', nisn: '0023456793', class: 'XI RPL 1', room: 'RUANG-14' },
+    { name: 'Danang Prakoso', nisn: '0023456794', class: 'XI RPL 1', room: 'RUANG-14', roomId: room14.id },
+    { name: 'Ujang Saputra', nisn: '0023456790', class: 'XI RPL 1', room: 'RUANG-14', roomId: room14.id },
+    { name: 'Asep Permana', nisn: '0023456791', class: 'XI RPL 1', room: 'RUANG-14', roomId: room14.id },
+    { name: 'Marlino Wijaya', nisn: '0023456792', class: 'XI RPL 1', room: 'RUANG-14', roomId: room14.id },
+    { name: 'Dedi Kurniawan', nisn: '0023456793', class: 'XI RPL 1', room: 'RUANG-14', roomId: room14.id },
   ];
 
   for (const s of students) {
@@ -153,7 +168,6 @@ async function main() {
       durationMinutes: 90,
       startTime,
       endTime,
-      room: 'RUANG-14',
       examCode: 'MTK-2026-UAS',
       token: '8X92K1',
       status: 'active',

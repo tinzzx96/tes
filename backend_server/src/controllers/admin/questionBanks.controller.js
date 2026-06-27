@@ -74,6 +74,11 @@ async function createBank(req, res, next) {
     const bank = await prisma.questionBank.create({
       data: { name, subject, createdBy: req.user.id },
     });
+    
+    // Auto-refresh admin panel via WebSocket
+    const { getIo } = require('../../socket');
+    getIo()?.to('room:admin').emit('admin-refresh', { tab: 'mapel' });
+
     return created(res, bank, 'Bank soal berhasil dibuat.');
   } catch (e) { next(e); }
 }
@@ -95,6 +100,10 @@ async function updateBank(req, res, next) {
     if (subject !== undefined) data.subject = subject;
 
     const updated = await prisma.questionBank.update({ where: { id: +req.params.id }, data });
+
+    const { getIo } = require('../../socket');
+    getIo()?.to('room:admin').emit('admin-refresh', { tab: 'mapel' });
+
     return ok(res, updated, 'Bank soal diperbarui.');
   } catch (e) { next(e); }
 }
@@ -111,6 +120,10 @@ async function deleteBank(req, res, next) {
     }
 
     await prisma.questionBank.delete({ where: { id: +req.params.id } });
+
+    const { getIo } = require('../../socket');
+    getIo()?.to('room:admin').emit('admin-refresh', { tab: 'mapel' });
+
     return ok(res, null, 'Bank soal dihapus.');
   } catch (e) { next(e); }
 }

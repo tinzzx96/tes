@@ -13,7 +13,7 @@ async function listUsers(req, res, next) {
 
     const users = await prisma.user.findMany({
       where,
-      select: { id: true, name: true, nisn: true, class: true, device: true, room: true, role: true, verified: true, createdAt: true },
+      select: { id: true, name: true, nisn: true, class: true, classId: true, device: true, room: true, role: true, verified: true, createdAt: true },
       orderBy: { name: 'asc' },
     });
     return ok(res, users);
@@ -24,7 +24,7 @@ async function getUser(req, res, next) {
   try {
     const user = await prisma.user.findUnique({
       where: { id: +req.params.id },
-      select: { id: true, name: true, nisn: true, class: true, device: true, room: true, role: true, verified: true, createdAt: true },
+      select: { id: true, name: true, nisn: true, class: true, classId: true, device: true, room: true, role: true, verified: true, createdAt: true },
     });
     if (!user) return notFound(res);
     return ok(res, user);
@@ -36,12 +36,23 @@ async function createUser(req, res, next) {
     const errs = validationResult(req);
     if (!errs.isEmpty()) return badRequest(res, 'Validasi gagal.', errs.array());
 
-    const { name, nisn, password, class: kelas, room, role, verified } = req.body;
+    const { name, nisn, password, class: kelas, class_id, roomId, role, verified } = req.body;
     const hashed = await bcrypt.hash(password, 12);
 
+    let roomName = null;
+    if (roomId) {
+      const rm = await prisma.room.findUnique({ where: { id: Number(roomId) } });
+      if (rm) roomName = rm.name;
+    }
+
     const user = await prisma.user.create({
-      data: { name, nisn, password: hashed, class: kelas, room, role: role ?? 'student', verified: verified ?? false },
-      select: { id: true, name: true, nisn: true, class: true, room: true, role: true, verified: true },
+      data: {
+        name, nisn, password: hashed,
+        class: kelas, classId: class_id || null,
+        roomId: roomId ? Number(roomId) : null, room: roomName,
+        role: role ?? 'student', verified: verified ?? false
+      },
+      select: { id: true, name: true, nisn: true, class: true, classId: true, room: true, roomId: true, role: true, verified: true },
     });
     return created(res, user, 'Pengguna berhasil dibuat.');
   } catch (e) { next(e); }
@@ -52,20 +63,63 @@ async function updateUser(req, res, next) {
     const errs = validationResult(req);
     if (!errs.isEmpty()) return badRequest(res, 'Validasi gagal.', errs.array());
 
-    const { name, class: kelas, room, role, verified, password } = req.body;
+    const { name, class: kelas, class_id, roomId, role, verified, password, device } = req.body;
     const data = {};
     if (name !== undefined) data.name = name;
     if (kelas !== undefined) data.class = kelas;
-    if (room !== undefined) data.room = room;
+    if (class_id !== undefined) data.classId = class_id || null;
+    if (roomId !== undefined) {
+      data.roomId = roomId ? Number(roomId) : null;
+      if (roomId) {
+        const rm = await prisma.room.findUnique({ where: { id: Number(roomId) } });
+        data.room = rm ? rm.name : null;
+      } else {
+        data.room = null;
+      }
+    }
     if (role !== undefined) data.role = role;
     if (verified !== undefined) data.verified = verified;
+    if (device !== undefined) data.device = device;
     if (password) data.password = await bcrypt.hash(password, 12);
+
+    if (verified === true) {
+      data.device = null;
+    }
 
     const user = await prisma.user.update({
       where: { id: +req.params.id },
       data,
-      select: { id: true, name: true, nisn: true, class: true, room: true, role: true, verified: true },
+      select: { id: true, name: true, nisn: true, class: true, classId: true, room: true, roomId: true, role: true, verified: true },
     });
+
+    if (verified === true) {
+      await prisma.examAttempt.updateMany({
+        where: { userId: user.id, status: 'started' },
+        data: { unlockPin: null, counterPelanggaran: 0 },
+      });
+
+      const { getIo, emitStudentStatusChanged } = require('../../socket');
+      const io = getIo();
+      if (io) {
+        if (user.room) {
+          io.to(`room:${user.room}`).emit('student-reset', { studentId: `stu_${user.id}` });
+          emitStudentStatusChanged(user.room, {
+            studentId: `stu_${user.id}`,
+            status: 'online',
+            isBlocked: false,
+            counterPelanggaran: 0,
+            roomId: user.roomId,
+          });
+        }
+      }
+    }
+
+    const { getIo } = require('../../socket');
+    const io = getIo();
+    if (io) {
+      io.to('room:admin').emit('admin-refresh', { tab: role === 'teacher' ? 'guru' : 'siswa' });
+    }
+
     return ok(res, user, 'Pengguna diperbarui.');
   } catch (e) { next(e); }
 }

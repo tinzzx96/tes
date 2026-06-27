@@ -46,10 +46,29 @@ async function initSocket(httpServer) {
   io.on('connection', (socket) => {
     logger.info(`WebSocket terhubung: userId=${socket.user?.id} role=${socket.user?.role}`);
 
-    socket.on('join-room', ({ roomName }) => {
-      if (!roomName) return;
-      socket.join(`room:${roomName}`);
-      logger.info(`Socket userId=${socket.user?.id} bergabung room: ${roomName}`);
+    socket.on('join-room', ({ roomName, roomId }) => {
+      if (roomId) {
+        socket.join(`room-channel-${roomId}`);
+        logger.info(`Socket userId=${socket.user?.id} bergabung channel: room-channel-${roomId}`);
+      }
+      if (roomName) {
+        socket.join(`room-channel-${roomName}`);
+        socket.join(`room:${roomName}`);
+        logger.info(`Socket userId=${socket.user?.id} bergabung channel: room-channel-${roomName}`);
+      }
+    });
+
+    socket.on('pin-generated', (payload) => {
+      logger.info(`Forwarding pin-generated event: studentId=${payload.studentId}`);
+      const roomId = payload.roomId;
+      const roomName = payload.roomName;
+      if (roomId) {
+        io.to(`room-channel-${roomId}`).emit('pin-generated', payload);
+      }
+      if (roomName) {
+        io.to(`room-channel-${roomName}`).emit('pin-generated', payload);
+        io.to(`room:${roomName}`).emit('pin-generated', payload);
+      }
     });
 
     socket.on('disconnect', () => {
@@ -72,16 +91,23 @@ async function initSocket(httpServer) {
           status: 'started',
           updatedAt: { lt: offlineCutoff, gte: windowStart },
         },
-        include: { user: { select: { id: true, room: true } } },
+        include: { user: { select: { id: true, room: true, roomId: true } } },
       });
 
       for (const attempt of justWentOffline) {
         const roomName = attempt.user?.room;
+        const roomId = attempt.user?.roomId;
+        const payload = {
+          studentId: `stu_${attempt.user.id}`,
+          status: 'offline',
+          roomId,
+        };
+        if (roomId) {
+          io.to(`room-channel-${roomId}`).emit('student-status-changed', payload);
+        }
         if (roomName) {
-          io.to(`room:${roomName}`).emit('student-status-changed', {
-            studentId: `stu_${attempt.user.id}`,
-            status: 'offline',
-          });
+          io.to(`room-channel-${roomName}`).emit('student-status-changed', payload);
+          io.to(`room:${roomName}`).emit('student-status-changed', payload);
         }
       }
     } catch (err) {
@@ -98,12 +124,26 @@ function getIo() {
 
 function emitPinGenerated(roomName, payload) {
   if (!io) return;
-  io.to(`room:${roomName}`).emit('pin-generated', payload);
+  const roomId = payload.roomId;
+  if (roomId) {
+    io.to(`room-channel-${roomId}`).emit('pin-generated', payload);
+  }
+  if (roomName) {
+    io.to(`room-channel-${roomName}`).emit('pin-generated', payload);
+    io.to(`room:${roomName}`).emit('pin-generated', payload);
+  }
 }
 
 function emitStudentStatusChanged(roomName, payload) {
   if (!io) return;
-  io.to(`room:${roomName}`).emit('student-status-changed', payload);
+  const roomId = payload.roomId;
+  if (roomId) {
+    io.to(`room-channel-${roomId}`).emit('student-status-changed', payload);
+  }
+  if (roomName) {
+    io.to(`room-channel-${roomName}`).emit('student-status-changed', payload);
+    io.to(`room:${roomName}`).emit('student-status-changed', payload);
+  }
 }
 
 module.exports = { initSocket, getIo, emitPinGenerated, emitStudentStatusChanged };

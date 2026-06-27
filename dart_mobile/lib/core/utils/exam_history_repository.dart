@@ -15,6 +15,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../config/api_config.dart';
+import '../models/exam_history_entry.dart';
 import 'auth_repository.dart';
 
 class ExamHistoryRepository {
@@ -46,37 +47,4 @@ class ExamHistoryRepository {
     throw Exception(
         data['error']?['message'] ?? 'Gagal memuat riwayat ujian.');
   }
-}
-
-// ── Model ─────────────────────────────────────────────────────────────────────
-class ExamHistoryEntry {
-  final String examId;
-  final String subjectName;
-  final String examCode;
-  final String teacherName;
-  final DateTime submittedAt;
-  final double? score; // null = belum dinilai guru
-
-  const ExamHistoryEntry({
-    required this.examId,
-    required this.subjectName,
-    required this.examCode,
-    required this.teacherName,
-    required this.submittedAt,
-    this.score,
-  });
-
-  /// Tampilkan "Menunggu Nilai" jika score null
-  String get scoreDisplay =>
-      score != null ? score!.toStringAsFixed(1) : 'Menunggu Nilai';
-
-  factory ExamHistoryEntry.fromJson(Map<String, dynamic> json) =>
-      ExamHistoryEntry(
-        examId: json['examId']?.toString() ?? '',
-        subjectName: json['subjectName'] ?? '',
-        examCode: json['examCode'] ?? '',
-        teacherName: json['teacherName'] ?? '',
-        submittedAt: DateTime.parse(json['submittedAt']),
-        score: (json['score'] as num?)?.toDouble(),
-      );
 }

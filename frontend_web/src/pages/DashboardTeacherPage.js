@@ -23,6 +23,41 @@ export class DashboardTeacherPage extends BasePage {
         this._exams = [];
         this._banks = [];
         this._selectedExamId = null;
+        this._socket = null;
+    }
+
+    mounted() {
+        this._connectSocket();
+    }
+
+    beforeUnmount() {
+        if (this._socket) {
+            this._socket.disconnect();
+            this._socket = null;
+        }
+    }
+
+    _connectSocket() {
+        try {
+            if (typeof io === 'undefined') return;
+            const token = authService.getToken();
+            const BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api').replace('/api', '');
+            this._socket = io(BASE_URL, { auth: { token } });
+
+            this._socket.emit('join-room', { roomName: 'admin' });
+
+            this._socket.on('exam-status-changed', () => {
+                this._renderTab();
+            });
+
+            this._socket.on('student-status-changed', () => {
+                if (this.activeTab === 'hasil') {
+                    this._renderTab();
+                }
+            });
+        } catch (_) {
+            // Silently fail
+        }
     }
 
     render() {
@@ -249,8 +284,8 @@ export class DashboardTeacherPage extends BasePage {
                         if (data.success) {
                             const { imported, parseErrors } = data.data;
                             close();
-                            alert(`✅ ${imported} soal berhasil diimport ke "${bank.name}"!` +
-                                (parseErrors?.length ? `\n\n⚠️ ${parseErrors.length} baris dilewati:\n${parseErrors.slice(0,3).join('\n')}` : ''));
+                            showToast(`Berhasil import ${imported} soal ke "${bank.name}"!` +
+                                (parseErrors?.length ? ` (${parseErrors.length} baris dilewati)` : ''), 'success');
                             this._tabBankSoal();
                         } else {
                             errEl.textContent = data.message || 'Gagal import. Periksa format file.';
@@ -340,7 +375,7 @@ KUNCI: C</pre>
                         await api.delete(`/admin/question-banks/${bank.id}`);
                         close(); this._tabBankSoal();
                     } catch (e) {
-                        alert(e.response?.data?.message || 'Gagal menghapus.'); close();
+                        showToast(e.response?.data?.message || 'Gagal menghapus.', 'error'); close();
                     }
                 }},
             ],
@@ -469,7 +504,10 @@ KUNCI: C</pre>
             }
         };
 
-        select.onchange = () => loadResults(Number(select.value));
+        select.onchange = () => {
+            this._selectedExamId = Number(select.value) || null;
+            loadResults(this._selectedExamId);
+        };
         if (this._selectedExamId) loadResults(this._selectedExamId);
     }
 }
