@@ -19,6 +19,7 @@ import '../../core/utils/exam_session_tracker.dart';
 import '../../core/utils/monitor_repository.dart';
 import '../../core/utils/security_guard.dart';
 import '../../core/utils/security_repository.dart';
+import '../../core/config/api_config.dart';
 import 'exam_action_bar.dart';
 import 'question_navigator_grid.dart';
 
@@ -213,6 +214,7 @@ class _ExamPlayerScreenState extends State<ExamPlayerScreen>
         _isLoadingQuestions = false;
       });
 
+      _emitQuestionProgress(0);
     } catch (e) {
       debugPrint('[HERO EXAM] Gagal boot sesi ujian: $e');
       if (mounted) {
@@ -235,6 +237,13 @@ class _ExamPlayerScreenState extends State<ExamPlayerScreen>
     if (!mounted) return;
     setState(() => _isPinningInProgress = true);
 
+    // Jika screen sudah terpasang (jarang terjadi tapi mungkin), langsung selesai
+    final alreadyPinned = await SecurityGuard.isScreenPinned().catchError((_) => false);
+    if (alreadyPinned) {
+      if (mounted) setState(() => _isPinningInProgress = false);
+      return;
+    }
+
     await SecurityGuard.startLockTask();
 
     _pinningTimeoutTimer?.cancel();
@@ -249,41 +258,54 @@ class _ExamPlayerScreenState extends State<ExamPlayerScreen>
           await SecurityGuard.isScreenPinned().catchError((_) => false);
           if (pinned) {
             timer.cancel();
-            setState(() => _isPinningInProgress = false);
+            if (mounted) setState(() => _isPinningInProgress = false);
             return;
           }
           if (stopwatch.elapsed >= _kPinningTimeout) {
             timer.cancel();
             stopwatch.stop();
             if (!mounted) return;
-            setState(() => _isPinningInProgress = false);
+            // Timeout: coba sekali lagi secara silent sebelum menyerah
+            // Ini mencegah anti-cheat loop langsung memblokir ulang
+            debugPrint('[HERO EXAM] Re-pinning timeout, mencoba ulang...');
+            await SecurityGuard.startLockTask();
+            await Future.delayed(const Duration(seconds: 2));
+            if (!mounted) return;
+            final pinnedRetry =
+                await SecurityGuard.isScreenPinned().catchError((_) => false);
+            if (mounted) setState(() => _isPinningInProgress = !pinnedRetry);
           }
         });
   }
+
 
   // ─────────────────────────────────────────────────────────────────────────
   // freeRASP
   // ─────────────────────────────────────────────────────────────────────────
 
   void _initFreeRasp() {
-    final config = TalsecConfig(
-      androidConfig: AndroidConfig(
-        packageName: 'com.example.apk_ujian',
-        signingCertHashes: ['YOUR_SIGNING_CERT_SHA256_HASH_HERE'],
-        supportedStores: ['com.android.vending'],
-      ),
-      watcherMail: 'security@heroexam.id',
-      isProd: false,
-    );
+    try {
+      final config = TalsecConfig(
+        androidConfig: AndroidConfig(
+          packageName: 'com.example.apk_ujian',
+          signingCertHashes: ['YOUR_SIGNING_CERT_SHA256_HASH_HERE'],
+          supportedStores: ['com.android.vending'],
+        ),
+        watcherMail: 'security@heroexam.id',
+        isProd: false,
+      );
 
-    final callback = ThreatCallback(
-      onSimulator: () => _triggerBlokir(alasan: 'Emulator/VM terdeteksi'),
-    );
+      final callback = ThreatCallback(
+        onSimulator: () => _triggerBlokir(alasan: 'Emulator/VM terdeteksi'),
+      );
 
-    Talsec.instance.attachListener(callback);
-    Talsec.instance.start(config).catchError((e) {
-      debugPrint('[freeRASP] init error: $e');
-    });
+      Talsec.instance.attachListener(callback);
+      Talsec.instance.start(config).catchError((e) {
+        debugPrint('[freeRASP] init error: $e');
+      });
+    } catch (e) {
+      debugPrint('[freeRASP] Critical init error bypassed: $e');
+    }
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -412,13 +434,14 @@ class _ExamPlayerScreenState extends State<ExamPlayerScreen>
 
       await _autoSubmitJawaban();
     } else {
-      await prefs.setBool(_kKeyIsBlokir, true);
-      await prefs.setInt(_kKeyCounter, newCounter);
-
+      // Set state SEGERA agar _isBlokir = true sebelum disk writes dan HTTP call
       setState(() {
         _isBlokir = true;
         _counterPelanggaran = newCounter;
       });
+
+      await prefs.setBool(_kKeyIsBlokir, true);
+      await prefs.setInt(_kKeyCounter, newCounter);
 
       // Lapor ke server — PIN dikirim ke pengawas via WebSocket otomatis
       if (attemptId != null) {
@@ -442,6 +465,7 @@ class _ExamPlayerScreenState extends State<ExamPlayerScreen>
       await AnswerRepository.submitExam(int.parse(widget.examId));
     } catch (_) {
       // Fallback lokal jika server tidak bisa dicapai
+    } finally {
       await ExamProgressStore.markCompleted(widget.examId);
     }
     debugPrint('[HERO EXAM] Auto-submit dieksekusi.');
@@ -513,20 +537,50 @@ class _ExamPlayerScreenState extends State<ExamPlayerScreen>
 
   void _handlePinGenerated() async {
     final event = SocketService.instance.pinGeneratedEvent.value;
-    if (event != null) {
-      const storage = FlutterSecureStorage();
-      final attemptIdStr = await storage.read(key: 'exam_attempt_id');
-      final attemptId = int.tryParse(attemptIdStr ?? '');
-      
-      if (attemptId != null && event['examAttemptId'] == attemptId) {
-        debugPrint('[ExamPlayerScreen] Menerima PIN unlock baru via WebSocket: ${event['pin']}');
-        final pin = event['pin']?.toString() ?? '';
-        if (pin.isNotEmpty) {
-          _pinController.text = pin;
-          await _verifikasiPin();
-        }
+    if (event == null) return;
+
+    // Baca examAttemptId dari secure storage
+    const storage = FlutterSecureStorage();
+    final attemptIdStr = await storage.read(key: 'exam_attempt_id');
+    final attemptId = int.tryParse(attemptIdStr ?? '');
+    if (attemptId == null) return;
+
+    // Bandingkan examAttemptId dengan type-safe (socket bisa kirim int atau String)
+    final eventAttemptId = event['examAttemptId'];
+    final eventAttemptIdInt = eventAttemptId is int
+        ? eventAttemptId
+        : int.tryParse(eventAttemptId?.toString() ?? '');
+
+    if (eventAttemptIdInt != attemptId) {
+      debugPrint('[ExamPlayerScreen] PIN event bukan untuk sesi ini ($eventAttemptIdInt != $attemptId), diabaikan.');
+      return;
+    }
+
+    final pin = event['pin']?.toString().trim() ?? '';
+    if (pin.isEmpty) {
+      debugPrint('[ExamPlayerScreen] PIN kosong, diabaikan.');
+      return;
+    }
+
+    debugPrint('[ExamPlayerScreen] Menerima PIN unlock baru via WebSocket: $pin');
+
+    if (!mounted) return;
+
+    // Pastikan layar blokir sudah ditampilkan sebelum mengisi PIN
+    if (!_isBlokir) {
+      // Tunggu hingga state _isBlokir aktif (maks 3 detik)
+      for (int i = 0; i < 30; i++) {
+        await Future.delayed(const Duration(milliseconds: 100));
+        if (!mounted) return;
+        if (_isBlokir) break;
       }
     }
+
+    if (!mounted) return;
+
+    // Isi PIN ke controller dan langsung verifikasi
+    _pinController.text = pin;
+    await _verifikasiPin();
   }
 
   void _handleStudentReset() async {
@@ -568,7 +622,20 @@ class _ExamPlayerScreenState extends State<ExamPlayerScreen>
     return ExamPagePosition.middle;
   }
 
-  void _goTo(int index) => setState(() => _currentIndex = index);
+  Future<void> _emitQuestionProgress(int questionIndex) async {
+    final attemptId = await ExamTokenRepository.getStoredAttemptId();
+    if (attemptId != null) {
+      SocketService.instance.emit('student-question-changed', {
+        'examAttemptId': attemptId,
+        'currentQuestion': questionIndex + 1,
+      });
+    }
+  }
+
+  void _goTo(int index) {
+    setState(() => _currentIndex = index);
+    _emitQuestionProgress(index);
+  }
 
   // ── Debounce anti-spam klik (PRD Addendum Bagian 44) ─────────────────────
   static const Duration _kOptionDebounce = Duration(milliseconds: 300);
@@ -632,11 +699,11 @@ class _ExamPlayerScreenState extends State<ExamPlayerScreen>
               _focusSubscription?.cancel();
               _pinningTimeoutTimer?.cancel();
 
-              // Submit ke server via AnswerRepository
               try {
                 await AnswerRepository.submitExam(int.parse(widget.examId));
               } catch (_) {
                 // Fallback lokal
+              } finally {
                 await ExamProgressStore.markCompleted(widget.examId);
               }
 
@@ -772,21 +839,26 @@ class _ExamPlayerScreenState extends State<ExamPlayerScreen>
                   color: Colors.black,
                   alignment: Alignment.center,
                   padding: const EdgeInsets.symmetric(horizontal: 24),
-                  child: _isDiskualifikasi
-                      ? _DiskualifikasiCard(
-                      maxPelanggaran: _kMaxPelanggaran)
-                      : _BlokirCard(
-                    counterPelanggaran: _counterPelanggaran,
-                    maxPelanggaran: _kMaxPelanggaran,
-                    pinController: _pinController,
-                    pinError: _pinError,
-                    isLoading: _isVerifyingPin,
-                    onPinChanged: () {
-                      if (_pinError.isNotEmpty) {
-                        setState(() => _pinError = '');
-                      }
-                    },
-                    onVerifikasi: _verifikasiPin,
+                  child: SingleChildScrollView(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 24),
+                      child: _isDiskualifikasi
+                          ? _DiskualifikasiCard(
+                              maxPelanggaran: _kMaxPelanggaran)
+                          : _BlokirCard(
+                              counterPelanggaran: _counterPelanggaran,
+                              maxPelanggaran: _kMaxPelanggaran,
+                              pinController: _pinController,
+                              pinError: _pinError,
+                              isLoading: _isVerifyingPin,
+                              onPinChanged: () {
+                                if (_pinError.isNotEmpty) {
+                                  setState(() => _pinError = '');
+                                }
+                              },
+                              onVerifikasi: _verifikasiPin,
+                            ),
+                    ),
                   ),
                 ),
               ),
@@ -855,7 +927,7 @@ class _BlokirCard extends StatelessWidget {
             TextField(
               controller: pinController,
               keyboardType: TextInputType.number,
-              obscureText: true,
+              obscureText: false,
               maxLength: 6,
               autofocus: true,
               style: AppTypography.cardTitle.copyWith(
@@ -1236,6 +1308,20 @@ class _OptionTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bool isLocked = onTap == null;
+
+    String text = label;
+    String? imageUrl;
+    if (label.contains('[IMAGE:')) {
+      final startIndex = label.indexOf('[IMAGE:');
+      final endIndex = label.indexOf(']', startIndex);
+      if (endIndex != -1) {
+        final filename = label.substring(startIndex + 7, endIndex);
+        text = (label.substring(0, startIndex) + label.substring(endIndex + 1)).trim();
+        final baseUrl = ApiConfig.baseUrl.replaceAll('/api', '');
+        imageUrl = '$baseUrl/uploads/questions/$filename';
+      }
+    }
+
     return AnimatedOpacity(
       opacity: isLocked ? 0.6 : 1.0,
       duration: const Duration(milliseconds: 150),
@@ -1255,13 +1341,37 @@ class _OptionTile extends StatelessWidget {
                 ? Border.all(color: AppColors.primary, width: 1.5)
                 : null,
           ),
-          child: Text(
-            label,
-            style: AppTypography.cardMeta.copyWith(
-              color: isSelected ? AppColors.primary : AppColors.textDark,
-              fontWeight:
-              isSelected ? FontWeight.w600 : FontWeight.w400,
-            ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (text.isNotEmpty)
+                Text(
+                  text,
+                  style: AppTypography.cardMeta.copyWith(
+                    color: isSelected ? AppColors.primary : AppColors.textDark,
+                    fontWeight:
+                    isSelected ? FontWeight.w600 : FontWeight.w400,
+                  ),
+                ),
+              if (imageUrl != null) ...[
+                if (text.isNotEmpty) const SizedBox(height: 8),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: Image.network(
+                    imageUrl,
+                    maxHeight: 120,
+                    fit: BoxFit.contain,
+                    errorBuilder: (_, __, ___) => Container(
+                      height: 80,
+                      color: const Color(0xFFDADADA),
+                      alignment: Alignment.center,
+                      child: Text('Gambar gagal dimuat', style: AppTypography.cardMeta),
+                    ),
+                  ),
+                ),
+              ],
+            ],
           ),
         ),
       ),

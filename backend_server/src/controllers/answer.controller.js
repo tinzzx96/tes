@@ -72,7 +72,7 @@ async function saveAnswer(req, res, next) {
           savedAt: new Date(),
         },
       });
-    });
+    }, { timeout: 20000, maxWait: 10000 });
 
     return ok(res, { questionId: question.id, savedAt: answer.savedAt }, 'Jawaban disimpan.');
   } catch (e) { next(e); }

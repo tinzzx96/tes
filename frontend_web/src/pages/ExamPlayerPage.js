@@ -88,6 +88,15 @@ export class ExamPlayerPage extends BasePage {
                 this._socket.emit('join-room', { roomName: user.room, roomId: user.roomId });
             }
 
+            this._socket.on('connect', () => {
+                if (this.examAttemptId) {
+                    this._socket.emit('student-question-changed', {
+                        examAttemptId: this.examAttemptId,
+                        currentQuestion: this.currentIndex + 1,
+                    });
+                }
+            });
+
             this._socket.on('exam-status-changed', ({ examId, status }) => {
                 if (Number(examId) === this.examId && status === 'completed') {
                     showToast('Ujian telah ditutup oleh pengawas. Jawaban Anda akan dikirim otomatis.', 'warning');
@@ -116,7 +125,8 @@ export class ExamPlayerPage extends BasePage {
     async _initExam() {
         try {
             // 1. Mulai sesi ujian (status: waiting → started)
-            await api.startExam(this.examId);
+            const startRes = await api.startExam(this.examId);
+            this.examAttemptId = startRes.data?.data?.attemptId;
 
             // 2. Ambil timer dari server
             const timerRes = await api.getTimer(this.examId);
@@ -260,6 +270,13 @@ export class ExamPlayerPage extends BasePage {
         const isFlagged = this.flagged.has(q.id);
         const slotNum   = this.currentIndex + 1;
 
+        if (this._socket && this._socket.connected && this.examAttemptId) {
+            this._socket.emit('student-question-changed', {
+                examAttemptId: this.examAttemptId,
+                currentQuestion: slotNum,
+            });
+        }
+
         this.questionArea.innerHTML = '';
 
         const card = createElement('div', 'bg-bg-surface-light rounded-card p-xl flex flex-col gap-lg max-w-4xl mx-auto fade-content');
@@ -310,11 +327,27 @@ export class ExamPlayerPage extends BasePage {
                         : 'border-divider border-opacity-20 hover:border-primary hover:border-opacity-50'
                 }`
             );
+
+            let renderedLabel = label;
+            if (label && label.includes('[IMAGE:')) {
+                const match = label.match(/\[IMAGE:(.+?)\]/);
+                if (match) {
+                    const filename = match[1];
+                    const text = label.replace(/\[IMAGE:.+?\]/g, '').trim();
+                    const baseUrl = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api').replace('/api', '');
+                    const imageUrl = `${baseUrl}/uploads/questions/${filename}`;
+                    renderedLabel = `
+                        ${text ? `<span>${text}</span><br/>` : ''}
+                        <div class="mt-xs inline-block max-w-full rounded border border-divider bg-white overflow-hidden p-1 max-h-32"><img src="${imageUrl}" alt="Gambar opsi" class="block max-h-24 max-w-full object-contain"></div>
+                    `;
+                }
+            }
+
             row.innerHTML = `
                 <span class="w-8 h-8 rounded-full flex items-center justify-center font-barlow font-bold text-sm flex-shrink-0 ${
                     isSelected ? 'bg-primary text-white' : 'bg-white text-text-dark border border-divider border-opacity-40'
                 }">${key.toUpperCase()}</span>
-                <span class="font-inter text-text-dark text-sm">${label}</span>
+                <span class="font-inter text-text-dark text-sm">${renderedLabel}</span>
             `;
             row.addEventListener('click', () => this._selectAnswer(q.id, key));
             optionsWrap.appendChild(row);

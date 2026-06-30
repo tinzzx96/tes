@@ -3,8 +3,9 @@
 
 const crypto = require('crypto');
 const prisma = require('../../config/database');
-const { ok, created, notFound, badRequest } = require('../../utils/response');
+const { ok, created, notFound, badRequest, forbidden } = require('../../utils/response');
 const { body, validationResult } = require('express-validator');
+const { logActivity, ACTIONS } = require('../../utils/activityLog');
 
 function genCode(len) {
   return crypto.randomBytes(len).toString('hex').toUpperCase().slice(0, len);
@@ -89,8 +90,9 @@ async function createExam(req, res, next) {
       class_ids,
     } = req.body;
 
+    let log;
     const exam = await prisma.$transaction(async (tx) => {
-      const created = await tx.exam.create({
+      const createdExam = await tx.exam.create({
         data: {
           title, subject,
           teacherId: +teacher_id,
@@ -104,9 +106,22 @@ async function createExam(req, res, next) {
         },
       });
       if (class_ids?.length) {
-        await syncExamClasses(tx, created.id, class_ids);
+        await syncExamClasses(tx, createdExam.id, class_ids);
       }
-      return created;
+
+      log = await tx.activityLog.create({
+        data: {
+          userId:      req.user?.id ?? null,
+          actorName:   req.user?.name ?? 'Sistem',
+          actorRole:   req.user?.role ?? 'system',
+          action:      ACTIONS.CREATE_EXAM,
+          targetType:  'exam',
+          targetId:    createdExam.id,
+          targetLabel: createdExam.title,
+        }
+      });
+
+      return createdExam;
     });
 
     const { getIo } = require('../../socket');
@@ -114,6 +129,15 @@ async function createExam(req, res, next) {
     if (io) {
       io.to('room:admin').emit('admin-refresh', { tab: 'ujian' });
       io.emit('exam-status-changed', { examId: exam.id, status: exam.status });
+    }
+
+    if (log) {
+      try {
+        if (io) {
+          io.to('room:admin').emit('new-activity', log);
+          io.to('room:admin').emit('global-activity-admin', log);
+        }
+      } catch (_) {}
     }
 
     return created(res, exam, 'Ujian berhasil dibuat.');
@@ -151,6 +175,14 @@ async function updateExam(req, res, next) {
       io.emit('exam-status-changed', { examId: examId, status: exam.status });
     }
 
+    await logActivity({
+      user: req.user,
+      action: ACTIONS.UPDATE_EXAM,
+      targetType: 'exam',
+      targetId: exam.id,
+      targetLabel: exam.title,
+    });
+
     return ok(res, exam, 'Ujian diperbarui.');
   } catch (e) { next(e); }
 }
@@ -158,13 +190,24 @@ async function updateExam(req, res, next) {
 async function deleteExam(req, res, next) {
   try {
     const examId = +req.params.id;
-    await prisma.exam.delete({ where: { id: examId } });
+    const exam = await prisma.exam.findUnique({ where: { id: examId } });
+    if (exam) {
+      await prisma.exam.delete({ where: { id: examId } });
+      
+      const { getIo } = require('../../socket');
+      const io = getIo();
+      if (io) {
+        io.to('room:admin').emit('admin-refresh', { tab: 'ujian' });
+        io.emit('exam-status-changed', { examId: examId, status: 'deleted' });
+      }
 
-    const { getIo } = require('../../socket');
-    const io = getIo();
-    if (io) {
-      io.to('room:admin').emit('admin-refresh', { tab: 'ujian' });
-      io.emit('exam-status-changed', { examId: examId, status: 'deleted' });
+      await logActivity({
+        user: req.user,
+        action: ACTIONS.DELETE_EXAM,
+        targetType: 'exam',
+        targetId: examId,
+        targetLabel: exam.title,
+      });
     }
 
     return ok(res, null, 'Ujian dihapus.');
@@ -186,6 +229,14 @@ async function activateExam(req, res, next) {
       io.emit('exam-status-changed', { examId: exam.id, status: 'active' });
     }
 
+    await logActivity({
+      user: req.user,
+      action: ACTIONS.ACTIVATE_EXAM,
+      targetType: 'exam',
+      targetId: exam.id,
+      targetLabel: exam.title,
+    });
+
     return ok(res, { token: exam.token }, 'Ujian diaktifkan.');
   } catch (e) { next(e); }
 }
@@ -205,6 +256,14 @@ async function completeExam(req, res, next) {
       io.emit('exam-status-changed', { examId: exam.id, status: 'completed' });
     }
 
+    await logActivity({
+      user: req.user,
+      action: ACTIONS.COMPLETE_EXAM,
+      targetType: 'exam',
+      targetId: exam.id,
+      targetLabel: exam.title,
+    });
+
     return ok(res, null, 'Ujian ditutup.');
   } catch (e) { next(e); }
 }
@@ -212,6 +271,40 @@ async function completeExam(req, res, next) {
 async function resetToken(req, res, next) {
   try {
     const examId = +req.params.id;
+    const role = req.user.role;
+    const userId = req.user.id;
+
+    if (role === 'proctor') {
+      const proctor = await prisma.user.findUnique({ where: { id: userId }, select: { roomId: true } });
+      if (!proctor?.roomId) {
+        return forbidden(res, 'Kamu belum memiliki ruang yang ditugaskan.');
+      }
+
+      // Get all classes in proctor's room
+      const studentsInRoom = await prisma.user.findMany({
+        where: { roomId: proctor.roomId, role: 'student' },
+        select: { classId: true },
+        distinct: ['classId'],
+      });
+      const classIds = studentsInRoom.map(s => s.classId).filter(Boolean);
+
+      // Verify if the exam is assigned to any of these classes
+      const isAssigned = await prisma.exam.findFirst({
+        where: {
+          id: examId,
+          examClasses: {
+            some: {
+              classId: { in: classIds }
+            }
+          }
+        }
+      });
+
+      if (!isAssigned) {
+        return forbidden(res, 'Kamu tidak memiliki akses ke ujian ini.');
+      }
+    }
+
     const exam = await prisma.exam.update({
       where: { id: examId },
       data: { token: genCode(6) },
@@ -223,6 +316,14 @@ async function resetToken(req, res, next) {
       io.to('room:admin').emit('admin-refresh', { tab: 'ujian' });
       io.emit('exam-status-changed', { examId: exam.id, token: exam.token });
     }
+
+    await logActivity({
+      user: req.user,
+      action: ACTIONS.RESET_EXAM_TOKEN,
+      targetType: 'exam',
+      targetId: exam.id,
+      targetLabel: exam.title,
+    });
 
     return ok(res, { token: exam.token }, 'Token direset.');
   } catch (e) { next(e); }

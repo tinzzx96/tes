@@ -8,18 +8,18 @@ import { createElement } from '../utils/dom.js';
 export function createTable(columns, rows, options = {}) {
     const { emptyMessage = 'Tidak ada data.', className = '' } = options;
 
-    const wrapper = createElement('div', `bg-bg-surface-light rounded-card overflow-hidden ${className}`);
+    const wrapper = createElement('div', `bg-bg-surface border border-divider rounded-card overflow-hidden shadow-lg ${className}`);
     const scrollWrap = createElement('div', 'overflow-x-auto');
 
     const table = createElement('table', 'w-full text-left border-collapse min-w-[640px]');
 
     // Header
     const thead = createElement('thead', '');
-    const headRow = createElement('tr', 'bg-bg-primary');
+    const headRow = createElement('tr', 'bg-[#181818] border-b border-divider');
     columns.forEach(col => {
         const th = createElement(
             'th',
-            `px-md py-3 text-table-header text-text-secondary font-inter uppercase tracking-label whitespace-nowrap ${col.width || ''}`
+            `px-md py-4 text-table-header text-text-secondary font-inter uppercase tracking-wider text-xs font-semibold whitespace-nowrap ${col.width || ''}`
         );
         th.textContent = col.label;
         headRow.appendChild(th);
@@ -41,10 +41,10 @@ export function createTable(columns, rows, options = {}) {
         rows.forEach((row, idx) => {
             const tr = createElement(
                 'tr',
-                `border-t border-divider border-opacity-10 ${idx % 2 === 1 ? 'bg-black bg-opacity-[0.02]' : ''} hover:bg-black hover:bg-opacity-5 transition-colors`
+                `border-b border-white border-opacity-[0.08] hover:bg-[#333333] hover:bg-opacity-20 transition-all duration-200 ease-in-out`
             );
             columns.forEach(col => {
-                const td = createElement('td', 'px-md py-3 text-table-cell text-text-dark font-inter align-middle');
+                const td = createElement('td', 'px-md py-4 text-table-cell text-text-primary font-inter align-middle');
                 if (col.render) {
                     td.innerHTML = col.render(row);
                 } else {
@@ -68,21 +68,22 @@ export function createTable(columns, rows, options = {}) {
  */
 export function statusPill(status) {
     const map = {
-        online: { color: 'bg-online', text: 'Online', textColor: 'text-text-dark' },
-        offline: { color: 'bg-offline', text: 'Offline', textColor: 'text-white' },
-        submit: { color: 'bg-primary', text: 'Submit', textColor: 'text-white' },
-        'belum login': { color: 'bg-gray-300', text: 'Belum Login', textColor: 'text-text-dark' },
-        aktif: { color: 'bg-online', text: 'Aktif', textColor: 'text-text-dark' },
-        nonaktif: { color: 'bg-gray-300', text: 'Nonaktif', textColor: 'text-text-dark' },
-        // Device/session connection states (Home page Device Status card)
-        connecting: { color: 'bg-pending', text: 'Connecting...', textColor: 'text-text-dark' },
-        active: { color: 'bg-online', text: 'Active', textColor: 'text-text-dark' },
-        disconnected: { color: 'bg-offline', text: 'Disconnected', textColor: 'text-white' },
+        online: { bg: 'bg-online bg-opacity-10', border: 'border border-online border-opacity-25', text: 'Online', textColor: 'text-online' },
+        offline: { bg: 'bg-offline bg-opacity-15', border: 'border border-offline border-opacity-25', text: 'Offline', textColor: 'text-text-secondary' },
+        submit: { bg: 'bg-primary bg-opacity-15', border: 'border border-primary border-opacity-25', text: 'Submit', textColor: 'text-primary' },
+        'belum login': { bg: 'bg-white bg-opacity-5', border: 'border border-divider border-opacity-25', text: 'Belum Login', textColor: 'text-text-secondary' },
+        aktif: { bg: 'bg-online bg-opacity-10', border: 'border border-online border-opacity-25', text: 'Aktif', textColor: 'text-online' },
+        nonaktif: { bg: 'bg-white bg-opacity-5', border: 'border border-divider border-opacity-25', text: 'Nonaktif', textColor: 'text-text-secondary' },
+        connecting: { bg: 'bg-pending bg-opacity-10', border: 'border border-pending border-opacity-25', text: 'Connecting...', textColor: 'text-pending' },
+        active: { bg: 'bg-online bg-opacity-10', border: 'border border-online border-opacity-25', text: 'Active', textColor: 'text-online' },
+        disconnected: { bg: 'bg-offline bg-opacity-15', border: 'border border-offline border-opacity-25', text: 'Disconnected', textColor: 'text-text-secondary' },
     };
     const key = String(status).toLowerCase();
-    const conf = map[key] || { color: 'bg-gray-300', text: status, textColor: 'text-text-dark' };
+    const conf = map[key] || { bg: 'bg-white bg-opacity-5', border: 'border border-divider border-opacity-25', text: status, textColor: 'text-text-secondary' };
     const dotAnim = key === 'connecting' ? 'animate-pulse' : '';
-    return `<span class="inline-flex items-center gap-1.5 px-sm py-1 rounded-badge text-xs font-inter font-bold ${conf.color} ${conf.textColor}">
-        <span class="w-1.5 h-1.5 rounded-full bg-current opacity-70 ${dotAnim}"></span>${conf.text}
+    const dotColor = conf.textColor.replace('text-', 'bg-');
+    
+    return `<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-badge text-xs font-inter font-semibold ${conf.bg} ${conf.border} ${conf.textColor}">
+        <span class="w-1.5 h-1.5 rounded-full ${dotColor} opacity-80 ${dotAnim}"></span>${conf.text}
     </span>`;
 }

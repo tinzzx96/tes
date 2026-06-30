@@ -13,9 +13,13 @@ function generateChallengeCode() {
   return randomCode(4);
 }
 
-// PIN 6-karakter diberikan ke pengawas untuk membuka blokir
+// PIN 6-angka diberikan ke pengawas untuk membuka blokir
 function generateUnlockPin() {
-  return randomCode(6);
+  let code = '';
+  for (let i = 0; i < 6; i++) {
+    code += Math.floor(Math.random() * 10).toString();
+  }
+  return code;
 }
 
 module.exports = { generateChallengeCode, generateUnlockPin };

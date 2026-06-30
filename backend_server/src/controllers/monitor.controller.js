@@ -21,7 +21,7 @@ async function heartbeat(req, res, next) {
     const [attempt] = await Promise.all([
       prisma.examAttempt.findUnique({
         where: { id: +examAttemptId },
-        include: { user: { select: { id: true, room: true } } },
+        include: { user: { select: { id: true, room: true, roomId: true } } },
       }),
       device ? prisma.user.update({ where: { id: userId }, data: { device } }) : Promise.resolve(),
     ]);
@@ -44,6 +44,8 @@ async function heartbeat(req, res, next) {
         emitStudentStatusChanged(roomName, {
           studentId: `stu_${userId}`,
           status: 'online',
+          progress: attempt.currentQuestion,
+          roomId: attempt.user.roomId,
         });
       }
     }
@@ -63,7 +65,16 @@ async function heartbeat(req, res, next) {
 async function getParticipants(req, res, next) {
   try {
     const examId = +req.params.examId;
-    const exam = await prisma.exam.findUnique({ where: { id: examId } });
+    const exam = await prisma.exam.findUnique({
+      where: { id: examId },
+      include: {
+        questionBank: {
+          select: {
+            questions: { select: { id: true } }
+          }
+        }
+      }
+    });
     if (!exam) return notFound(res, 'Ujian tidak ditemukan.');
 
     if (req.user.role === 'teacher' && exam.teacherId !== req.user.id) {
@@ -79,6 +90,7 @@ async function getParticipants(req, res, next) {
       orderBy: { user: { name: 'asc' } },
     });
 
+    const totalQ = exam.questionBank?.questions?.length ?? 40;
     const now = Date.now();
     const participants = attempts.map(a => {
       const msSince = now - a.updatedAt.getTime();
@@ -92,7 +104,7 @@ async function getParticipants(req, res, next) {
         roomId: a.user.roomId,
         device: a.user.device,
         status: a.status === 'submitted' ? 'submitted' : isOffline ? 'offline' : a.status === 'started' ? 'online' : 'not_logged_in',
-        progress: a.answers.length,
+        progress: a.status === 'submitted' ? totalQ : a.currentQuestion,
         counterPelanggaran: a.counterPelanggaran,
         isBlocked: !!(a.unlockPin && a.status === 'started'),
         lastSeen: a.updatedAt.toISOString(),
@@ -110,7 +122,7 @@ async function getParticipants(req, res, next) {
       blocked: participants.filter(p => p.isBlocked).length,
     };
 
-    return ok(res, { exam: { id: exam.id, title: exam.title, status: exam.status }, participants, summary });
+    return ok(res, { exam: { id: exam.id, title: exam.title, status: exam.status, totalQuestions: totalQ }, participants, summary });
   } catch (e) { next(e); }
 }
 

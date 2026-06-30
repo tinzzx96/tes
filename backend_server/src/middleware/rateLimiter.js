@@ -1,5 +1,20 @@
 const rateLimit = require('express-rate-limit');
 
+// Default to false during development as requested ("hilangkan fitur 15 menit Limit di masa developments")
+let isLimit15MinActive = false;
+
+function setLimit15MinActive(value) {
+  isLimit15MinActive = !!value;
+}
+
+function getLimit15MinActive() {
+  return isLimit15MinActive;
+}
+
+// Attach to global scope for easy testing/dev access
+global.setLimit15MinActive = setLimit15MinActive;
+global.getLimit15MinActive = getLimit15MinActive;
+
 const windowMs = parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 60_000;
 const max = parseInt(process.env.RATE_LIMIT_MAX) || 100;
 
@@ -17,6 +32,7 @@ const loginLimiter = rateLimit({
   max: 10,
   standardHeaders: true,
   legacyHeaders: false,
+  skip: (req, res) => !isLimit15MinActive,
   message: { success: false, message: 'Terlalu banyak percobaan login. Tunggu 15 menit.' },
 });
 
@@ -41,4 +57,11 @@ const verifyUnlockLimiter = rateLimit({
   },
 });
 
-module.exports = { globalLimiter, loginLimiter, verifyUnlockLimiter };
+module.exports = {
+  globalLimiter,
+  loginLimiter,
+  verifyUnlockLimiter,
+  setLimit15MinActive,
+  getLimit15MinActive
+};
+

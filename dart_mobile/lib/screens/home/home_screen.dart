@@ -14,6 +14,7 @@ import '../../core/utils/greeting_helper.dart';
 import '../../core/utils/exam_schedule_repository.dart';
 import '../../core/utils/auth_repository.dart';
 import '../exam/validation_screen.dart';
+import '../login/login_screen.dart';
 
 /// Home Screen — sesuai mockup Frame 2.
 ///
@@ -55,7 +56,13 @@ class HomeScreenState extends State<HomeScreen> {
     try {
       // Ambil profil siswa dari server
       final studentMap = await AuthRepository.me();
-      final student = Student.fromJson(studentMap);
+      var student = Student.fromJson(studentMap);
+
+      // Fallback: Jika di DB device name masih kosong, gunakan nama perangkat lokal
+      if (student.deviceName.isEmpty) {
+        final localDeviceName = await AuthRepository.getLocalDeviceName();
+        student = student.copyWith(deviceName: localDeviceName);
+      }
 
       // Ambil jadwal dari server
       final schedules = await ExamScheduleRepository.fetchToday();
@@ -118,6 +125,9 @@ class HomeScreenState extends State<HomeScreen> {
           classLabel: '-',
         );
 
+    final screenHeight = MediaQuery.of(context).size.height;
+    final isSmallScreen = screenHeight < 720;
+
     return Scaffold(
       backgroundColor: AppColors.background,
       body: Column(
@@ -127,24 +137,31 @@ class HomeScreenState extends State<HomeScreen> {
           Expanded(
             child: Container(
               color: const Color(0xFFE8E8E8),
-              child: Column(
-                children: [
-                  // ===== FIXED: Device Status Card, tidak ikut scroll =====
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(24, 16, 24, 16),
-                    child: DeviceStatusCard(student: student),
+              child: CustomScrollView(
+                slivers: [
+                  // ===== Device Status Card (Scrollable) =====
+                  SliverPadding(
+                    padding: EdgeInsets.fromLTRB(
+                      24,
+                      isSmallScreen ? 10 : 16,
+                      24,
+                      isSmallScreen ? 10 : 16,
+                    ),
+                    sliver: SliverToBoxAdapter(
+                      child: DeviceStatusCard(student: student),
+                    ),
                   ),
                   // ===== Greeting + tanggal + ringkasan ujian hari ini =====
-                  _TodaySummaryBar(
-                    total: _todaySchedules.length,
-                    completed: _todaySchedules
-                        .where((s) => _completedIds.contains(s.id))
-                        .length,
+                  SliverToBoxAdapter(
+                    child: _TodaySummaryBar(
+                      total: _todaySchedules.length,
+                      completed: _todaySchedules
+                          .where((s) => _completedIds.contains(s.id) || s.isCompleted)
+                          .length,
+                    ),
                   ),
                   // ===== SCROLLABLE: daftar Exam Card =====
-                  Expanded(
-                    child: _buildScheduleList(),
-                  ),
+                  _buildSliverScheduleList(isSmallScreen),
                 ],
               ),
             ),
@@ -154,67 +171,83 @@ class HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildScheduleList() {
+  Widget _buildSliverScheduleList(bool isSmallScreen) {
     if (_isLoading) {
-      return const Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            CircularProgressIndicator(),
-            SizedBox(height: 12),
-            Text('Memuat jadwal ujian...'),
-          ],
-        ),
-      );
-    }
-
-    if (_errorMessage != null) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
+      return const SliverFillRemaining(
+        hasScrollBody: false,
+        child: Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.error_outline, color: AppColors.primary, size: 40),
-              const SizedBox(height: 12),
-              Text(
-                _errorMessage!,
-                textAlign: TextAlign.center,
-                style: AppTypography.cardMeta
-                    .copyWith(color: AppColors.textSecondary),
-              ),
-              const SizedBox(height: 16),
-              ElevatedButton.icon(
-                onPressed: _loadData,
-                icon: const Icon(Icons.refresh),
-                label: const Text('Coba Lagi'),
-              ),
+              CircularProgressIndicator(),
+              SizedBox(height: 12),
+              Text('Memuat jadwal ujian...'),
             ],
           ),
         ),
       );
     }
 
-    if (_todaySchedules.isEmpty) {
-      return const _EmptyTodayState();
+    if (_errorMessage != null) {
+      return SliverFillRemaining(
+        hasScrollBody: false,
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.error_outline, color: AppColors.primary, size: 40),
+                const SizedBox(height: 12),
+                Text(
+                  _errorMessage!,
+                  textAlign: TextAlign.center,
+                  style: AppTypography.cardMeta
+                      .copyWith(color: AppColors.textSecondary),
+                ),
+                const SizedBox(height: 16),
+                ElevatedButton.icon(
+                  onPressed: _loadData,
+                  icon: const Icon(Icons.refresh),
+                  label: const Text('Coba Lagi'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
     }
 
-    return ListView.separated(
-      padding: const EdgeInsets.fromLTRB(24, 4, 24, 16),
-      itemCount: _todaySchedules.length,
-      separatorBuilder: (context, index) => const SizedBox(height: 16),
-      itemBuilder: (context, index) {
-        final schedule = _todaySchedules[index];
-        final isCompleted = _completedIds.contains(schedule.id);
-        return FadeInItem(
-          index: index,
-          child: ExamCard(
-            schedule: schedule,
-            isCompleted: isCompleted,
-            onStartExam: () => _openExam(schedule),
-          ),
-        );
-      },
+    if (_todaySchedules.isEmpty) {
+      return const SliverToBoxAdapter(
+        child: _EmptyTodayState(),
+      );
+    }
+
+    return SliverPadding(
+      padding: EdgeInsets.fromLTRB(24, 4, 24, isSmallScreen ? 12 : 24),
+      sliver: SliverList(
+        delegate: SliverChildBuilderDelegate(
+          (context, index) {
+            // Menghasilkan item list dengan separator SizedBox
+            if (index.isOdd) {
+              return SizedBox(height: isSmallScreen ? 12 : 16);
+            }
+            final itemIndex = index ~/ 2;
+            final schedule = _todaySchedules[itemIndex];
+            final isCompleted = _completedIds.contains(schedule.id) || schedule.isCompleted;
+            return FadeInItem(
+              index: itemIndex,
+              child: ExamCard(
+                schedule: schedule,
+                isCompleted: isCompleted,
+                onStartExam: () => _openExam(schedule),
+              ),
+            );
+          },
+          childCount: _todaySchedules.length * 2 - 1,
+        ),
+      ),
     );
   }
 }
@@ -227,6 +260,9 @@ class _HomeHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final screenHeight = MediaQuery.of(context).size.height;
+    final isSmallScreen = screenHeight < 720;
+
     return Container(
       color: AppColors.background,
       child: SafeArea(
@@ -234,22 +270,27 @@ class _HomeHeader extends StatelessWidget {
         child: Column(
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
+              padding: EdgeInsets.fromLTRB(24, isSmallScreen ? 8 : 16, 24, 0),
               child: Row(
                 children: [
-                  const _AppLogo(size: 36),
+                  _AppLogo(size: isSmallScreen ? 28 : 36),
                   const SizedBox(width: 12),
                   Expanded(
-                    child: Text('EXAM-PONCOL', style: AppTypography.appTitle),
+                    child: Text(
+                      'EXAM-PONCOL', 
+                      style: AppTypography.appTitle.copyWith(
+                        fontSize: isSmallScreen ? 18 : 22,
+                      ),
+                    ),
                   ),
                   const HeaderStatusActions(),
                 ],
               ),
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: isSmallScreen ? 8 : 16),
             Container(height: 1, color: AppColors.accentGold),
             Padding(
-              padding: const EdgeInsets.fromLTRB(24, 8, 24, 0),
+              padding: EdgeInsets.fromLTRB(24, isSmallScreen ? 4 : 8, 24, 0),
               child: Align(
                 alignment: Alignment.centerRight,
                 child: RefreshScheduleButton(
@@ -303,10 +344,13 @@ class _ProfileSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final screenHeight = MediaQuery.of(context).size.height;
+    final isSmallScreen = screenHeight < 720;
+
     return Container(
       width: double.infinity,
       color: AppColors.background,
-      padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
+      padding: EdgeInsets.fromLTRB(24, isSmallScreen ? 6 : 12, 24, isSmallScreen ? 12 : 24),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
@@ -328,10 +372,12 @@ class _ProfileSection extends StatelessWidget {
               children: [
                 Text(
                   student.name.toUpperCase(),
-                  style: AppTypography.studentName,
+                  style: AppTypography.studentName.copyWith(
+                    fontSize: isSmallScreen ? 14 : 16,
+                  ),
                   overflow: TextOverflow.ellipsis,
                 ),
-                const SizedBox(height: 8),
+                SizedBox(height: isSmallScreen ? 4 : 8),
                 Wrap(
                   spacing: 8,
                   runSpacing: 6,
@@ -340,6 +386,7 @@ class _ProfileSection extends StatelessWidget {
                       icon: Icons.badge_outlined,
                       label: student.nisn,
                     ),
+
                     _InfoChip(
                       icon: Icons.school_outlined,
                       label: student.classLabel,
@@ -350,7 +397,7 @@ class _ProfileSection extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 12),
-          const _ReadyBadge(),
+          const _LogoutButton(),
         ],
       ),
     );
@@ -387,15 +434,53 @@ class _InfoChip extends StatelessWidget {
   }
 }
 
-class _ReadyBadge extends StatelessWidget {
-  const _ReadyBadge();
+class _LogoutButton extends StatelessWidget {
+  const _LogoutButton();
+
+  Future<void> _handleLogout(BuildContext context) async {
+    final proceed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        title: const Text('Log out', style: TextStyle(color: AppColors.textPrimary)),
+        content: const Text('Apakah Anda yakin ingin keluar dari akun?', style: TextStyle(color: AppColors.textSecondary)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Batal', style: TextStyle(color: AppColors.textSecondary)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Keluar', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+
+    if (proceed == true) {
+      await AuthRepository.logout();
+      if (context.mounted) {
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const LoginScreen()),
+          (route) => false,
+        );
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Icon(
-      Icons.verified_rounded,
-      size: 20,
-      color: AppColors.online,
+    return InkWell(
+      borderRadius: BorderRadius.circular(20),
+      onTap: () => _handleLogout(context),
+      child: const Padding(
+        padding: EdgeInsets.all(8.0),
+        child: Icon(
+          Icons.logout_rounded,
+          size: 22,
+          color: AppColors.primary,
+        ),
+      ),
     );
   }
 }

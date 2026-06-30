@@ -10,8 +10,11 @@ class Student {
   final String roomName; // contoh: "RUANG - 14"
   final String networkName; // contoh: "LAN-EXAM-14"
   final bool sessionActive;
-  final bool screenSharingActive;
-  final bool proctorVisibilityOn;
+  // ── Device Lock PRD Bagian 38 ──────────────────────────────────────────
+  // True jika device yang dipakai sesuai dengan yang terdaftar di server.
+  // Setelah login sukses ini SELALU true (karena login sendiri sudah
+  // memvalidasi device). Nilainya bisa false jika ada anomali terdeteksi.
+  final bool deviceVerified;
 
   const Student({
     required this.name,
@@ -21,8 +24,7 @@ class Student {
     this.roomName = '',
     this.networkName = '',
     this.sessionActive = true,
-    this.screenSharingActive = true,
-    this.proctorVisibilityOn = true,
+    this.deviceVerified = true,
   });
 
   /// Inisial nama untuk avatar badge, contoh "Danang Prakoso" -> "DP".
@@ -37,17 +39,42 @@ class Student {
     return (first + last).toUpperCase();
   }
 
+  Student copyWith({
+    String? name,
+    String? nisn,
+    String? classLabel,
+    String? deviceName,
+    String? roomName,
+    String? networkName,
+    bool? sessionActive,
+    bool? deviceVerified,
+  }) {
+    return Student(
+      name: name ?? this.name,
+      nisn: nisn ?? this.nisn,
+      classLabel: classLabel ?? this.classLabel,
+      deviceName: deviceName ?? this.deviceName,
+      roomName: roomName ?? this.roomName,
+      networkName: networkName ?? this.networkName,
+      sessionActive: sessionActive ?? this.sessionActive,
+      deviceVerified: deviceVerified ?? this.deviceVerified,
+    );
+  }
+
   factory Student.fromJson(Map<String, dynamic> json) {
+    final room = json['room']?.toString() ?? '';
     return Student(
       name: json['name'] ?? '',
       nisn: json['nisn'] ?? '',
       classLabel: json['class'] ?? '',
       deviceName: json['device'] ?? '',
-      roomName: json['room'] ?? '',
-      networkName: 'LAN-EXAM-${json['room'] ?? ''}',
+      roomName: room,
+      networkName: room.isNotEmpty ? 'LAN-EXAM-$room' : '',
       sessionActive: true,
-      screenSharingActive: true,
-      proctorVisibilityOn: true,
+      // Backend hanya mengembalikan deviceStatus.verified saat login sukses.
+      // Jika tidak ada field ini, kita asumsikan terverifikasi (login baru saja berhasil).
+      deviceVerified: json['deviceVerified'] ?? true,
     );
   }
 }
+

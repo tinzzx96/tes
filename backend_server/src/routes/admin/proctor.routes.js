@@ -9,7 +9,7 @@
 const router = require('express').Router();
 const {
   listProctors, createProctor, updateProctor, deleteProctor,
-  listProctorExams, getProctorParticipants, resetStudentSession,
+  listProctorExams, getProctorParticipants, resetStudentSession, resetStudentDevice,
   createRules,
 } = require('../../controllers/admin/proctor.controller');
 const { resetToken } = require('../../controllers/admin/exams.controller');
@@ -21,9 +21,11 @@ router.put('/:id',   updateProctor);
 router.delete('/:id',deleteProctor);
 
 // ── Proktor: exam di ruangnya + monitoring ────────────────────────────────────
-router.get('/my-exams',                    listProctorExams);
-router.get('/exam/:examId/participants',   getProctorParticipants);
-router.post('/exam/:examId/reset/:userId', resetStudentSession);
-router.post('/exam/:id/reset-token',       resetToken);
+router.get('/my-exams',                         listProctorExams);
+router.get('/exam/:examId/participants',         getProctorParticipants);
+router.post('/exam/:examId/reset/:userId',       resetStudentSession);
+router.post('/exam/:examId/reset-token',         resetToken);
+// ── Reset Device Lock (PRD Bagian 21) ────────────────────────────────────────
+router.post('/exam/:examId/reset-device/:userId', resetStudentDevice);
 
 module.exports = router;

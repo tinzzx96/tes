@@ -28,10 +28,11 @@ class QuestionRepository {
   /// Dipanggil SETELAH token ujian divalidasi dan SEBELUM ambil soal.
   static Future<ExamStartResult> startExam(int examId) async {
     final token = await AuthRepository.getToken();
+    final headers = await ApiConfig.headersWithDevice(token);
 
     final res = await http.post(
       Uri.parse('${ApiConfig.baseUrl}/exams/$examId/start'),
-      headers: ApiConfig.headers(token),
+      headers: headers,
       body: jsonEncode({}),
     );
 
@@ -53,10 +54,11 @@ class QuestionRepository {
   /// Sudah termasuk savedOptionId agar jawaban sebelumnya bisa di-restore.
   static Future<List<ExamQuestion>> fetchQuestions(int examId) async {
     final token = await AuthRepository.getToken();
+    final headers = await ApiConfig.headersWithDevice(token);
 
     final res = await http.get(
       Uri.parse('${ApiConfig.baseUrl}/exams/$examId/questions'),
-      headers: ApiConfig.headers(token),
+      headers: headers,
     );
 
     final data = jsonDecode(res.body) as Map<String, dynamic>;
@@ -75,10 +77,11 @@ class QuestionRepository {
   /// Gunakan remainingSeconds ini sebagai acuan — BUKAN timer lokal.
   static Future<ExamTimer> fetchTimer(int examId) async {
     final token = await AuthRepository.getToken();
+    final headers = await ApiConfig.headersWithDevice(token);
 
     final res = await http.get(
       Uri.parse('${ApiConfig.baseUrl}/exams/$examId/timer'),
-      headers: ApiConfig.headers(token),
+      headers: headers,
     );
 
     final data = jsonDecode(res.body) as Map<String, dynamic>;

@@ -216,3 +216,15 @@ export function subscribeConnectionState(onChange) {
         conn?.removeEventListener?.('change', handler);
     };
 }
+
+/**
+ * Returns a stable unique device ID for the web browser/client by storing a UUID in localStorage.
+ */
+export function getWebDeviceId() {
+    let devId = localStorage.getItem('exam_poncol_web_device_id');
+    if (!devId) {
+        devId = 'web-' + Math.random().toString(36).substring(2, 15) + '-' + Math.random().toString(36).substring(2, 15);
+        localStorage.setItem('exam_poncol_web_device_id', devId);
+    }
+    return devId;
+}

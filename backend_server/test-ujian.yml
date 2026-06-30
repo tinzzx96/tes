@@ -1,0 +1,85 @@
+config:
+  target: "http://localhost:8000/api"
+  phases:
+    - duration: 60
+      arrivalRate: 35
+      name: "Uji Beban 2100 User Aktif"
+  payload:
+    path: "users.csv"
+    fields:
+      - "nisn"
+      - "password"
+    order: "sequence"
+  defaults:
+    headers:
+      Content-Type: "application/json"
+
+scenarios:
+  - name: "Alur Pengerjaan Ujian Siswa (ExamPlayer Flow)"
+    flow:
+      # 1. Login Siswa (Mengambil data NISN & Password dari users.csv secara berurutan)
+      - post:
+          url: "/auth/login"
+          json:
+            nisn: "{{ nisn }}"
+            password: "{{ password }}"
+            sessionToken: "BF38EF"
+            device_id: "artillery-device-{{ nisn }}"
+            device_name: "Artillery Load Tester"
+          capture:
+            - json: "$.data.accessToken"
+              as: "accessToken"
+
+      # 2. Mulai Ujian (Mengubah Status Menjadi started)
+      - post:
+          url: "/exams/5/start"
+          headers:
+            Authorization: "Bearer {{ accessToken }}"
+            x-device-id: "artillery-device-{{ nisn }}"
+          capture:
+            - json: "$.data.attemptId"
+              as: "examAttemptId"
+
+      # 4. Ambil Daftar Soal & Capture ID Soal Pertama
+      - get:
+          url: "/exams/5/questions"
+          headers:
+            Authorization: "Bearer {{ accessToken }}"
+            x-device-id: "artillery-device-{{ nisn }}"
+          capture:
+            - json: "$.data.questions[0].id"
+              as: "firstQuestionId"
+
+      # 5. Cek Sisa Waktu Ujian (Timer)
+      - get:
+          url: "/exams/5/timer"
+          headers:
+            Authorization: "Bearer {{ accessToken }}"
+            x-device-id: "artillery-device-{{ nisn }}"
+
+      # 6. Simulasi Menyimpan Jawaban (Auto-save menggunakan ID Soal yang ditangkap secara dinamis)
+      - post:
+          url: "/exam-attempts/{{ examAttemptId }}/answers"
+          headers:
+            Authorization: "Bearer {{ accessToken }}"
+            x-device-id: "artillery-device-{{ nisn }}"
+          json:
+            questionId: "{{ firstQuestionId }}"
+            selectedOptionIndex: 1
+            clientTimestamp: "2026-06-29T20:38:00.000Z"
+
+      # 7. Kirim Heartbeat untuk Memperbarui Sesi
+      - post:
+          url: "/monitor/heartbeat"
+          headers:
+            Authorization: "Bearer {{ accessToken }}"
+          json:
+            examAttemptId: "{{ examAttemptId }}"
+            device: "Artillery Load Tester"
+
+      # 8. Submit Lembar Jawaban Ujian
+      - post:
+          url: "/exams/5/submit"
+          headers:
+            Authorization: "Bearer {{ accessToken }}"
+            x-device-id: "artillery-device-{{ nisn }}"

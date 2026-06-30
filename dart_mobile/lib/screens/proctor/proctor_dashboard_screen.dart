@@ -73,7 +73,11 @@ class _ProctorDashboardScreenState extends State<ProctorDashboardScreen> {
         _exams = examsList;
         _isLoadingExams = false;
         if (examsList.isNotEmpty) {
-          _selectedExamId = examsList.first.id;
+          final activeExam = examsList.firstWhere(
+            (e) => e.status == 'active',
+            orElse: () => examsList.first,
+          );
+          _selectedExamId = activeExam.id;
           _loadParticipants();
           _startPolling();
         }
@@ -565,7 +569,7 @@ class _ProctorDashboardScreenState extends State<ProctorDashboardScreen> {
                       return DropdownMenuItem<int>(
                         value: exam.id,
                         child: Text(
-                          '${exam.title} (${exam.subject})',
+                          '${exam.title} (${exam.subject})${exam.status == 'active' ? ' ● (Aktif)' : ''}',
                           style: GoogleFonts.inter(
                             color: AppColors.textPrimary,
                             fontWeight: FontWeight.w600,
@@ -750,10 +754,14 @@ class _ProctorDashboardScreenState extends State<ProctorDashboardScreen> {
       textColor = AppColors.textSecondary;
     }
 
-    // Progress bar calculations (assume total 40 questions as default)
-    const int totalQ = 40;
+    // Progress bar calculations using the selected exam's total questions
+    final selectedExam = _exams.firstWhere(
+      (e) => e.id == _selectedExamId,
+      orElse: () => _exams.first,
+    );
+    final int totalQ = selectedExam.totalQuestions;
     final int currentProgress = student.progress;
-    final double progressPct = (currentProgress / totalQ).clamp(0.0, 1.0);
+    final double progressPct = (totalQ > 0 ? (currentProgress / totalQ) : 0.0).clamp(0.0, 1.0);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),

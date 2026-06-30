@@ -31,9 +31,9 @@ function resolveJurusan(raw) {
 }
 
 function buildNamaKelas(tingkat, jurusan, nomor) {
-  const n = parseInt(nomor);
-  if (!n || n <= 1) return `${tingkat} ${jurusan}`;
-  return `${tingkat} ${jurusan}-${n}`;
+  const cleanNomor = (nomor || '').trim();
+  if (!cleanNomor) return `${tingkat} ${jurusan}`;
+  return `${tingkat} ${jurusan}-${cleanNomor}`;
 }
 
 // Session sementara untuk typo confirmation (in-memory, cukup untuk flow ini)
@@ -44,25 +44,40 @@ async function downloadTemplate(req, res) {
   const panduan = 'PANDUAN PENTING: Penulisan data Kelas wajib dipisah per kolom. ' +
     'Isikan singkatan Jurusan dengan huruf kapital resmi. ' +
     'DAFTAR JURUSAN UTAMA: RPL, DKV, TKRO, AKL, BP, TKJ. ' +
-    'KETENTUAN NOMOR KELAS: Jika jurusan tersebut hanya memiliki 1 kelas, isi dengan angka 1 atau KOSONGKAN. ' +
-    'Jika memiliki 2 kelas atau lebih, wajib diisi dengan angka (2, 3, 4, dst) pada kelas berikutnya. ' +
-    'Kesalahan pengisian akan memicu kegagalan validasi kartu ujian!';
+    'KETENTUAN NOMOR KELAS: Jika jurusan hanya memiliki 1 kelas dan tidak mau memakai strip, KOSONGKAN. ' +
+    'Jika memiliki 2 kelas atau lebih, wajib isi nomor kelas (1, 2, 3, dst) agar menghasilkan format strip (cth: ketik 1 untuk DKV-1). ' +
+    'KETENTUAN RUANGAN: Format penulisan mengikuti Kelola Ruangan (cth: Ruang-1 wajib pakai strip, LAB 1 cukup spasi saja).';
 
   const wb = XLSX.utils.book_new();
 
-  // Baris 1 = panduan (merge A1:E1 via cells)
+  // Baris 1 = panduan (merge A1:G1 via cells)
   const wsData = [
-    [panduan, '', '', '', ''],
-    ['Nama Siswa', 'NISN', 'Tingkat Kelas (X/XI/XII)', 'Jurusan', 'Nomor Kelas (1/2/3)'],
-    ['Budi Santoso', '1234567890', 'XI', 'RPL', ''],
-    ['Siti Aminah',  '0987654321', 'X',  'TKRO', '2'],
+    [panduan, '', '', '', '', '', ''],
+    ['Nama Siswa', 'NISN', 'Tingkat Kelas (X/XI/XII)', 'Jurusan', 'Nomor Kelas (1/2/3)', 'Ruang', 'Tahun Ajaran'],
+    ['Budi Santoso', '1234567890', 'XI', 'RPL', '', 'LAB 1', '2026/2027'],
+    ['Siti Aminah',  '0987654321', 'X',  'TKRO', '2', 'LAB 2', '2026/2027'],
   ];
 
   const ws = XLSX.utils.aoa_to_sheet(wsData);
 
-  // Style baris panduan (merge A1:E1)
-  ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 4 } }];
-  ws['!cols']   = [{ wch: 30 }, { wch: 15 }, { wch: 22 }, { wch: 10 }, { wch: 18 }];
+  // Style baris panduan (merge A1:G1)
+  ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 6 } }];
+  ws['!cols']   = [
+    { wch: 25 }, // Nama Siswa
+    { wch: 15 }, // NISN
+    { wch: 24 }, // Tingkat Kelas
+    { wch: 12 }, // Jurusan
+    { wch: 20 }, // Nomor Kelas
+    { wch: 15 }, // Ruang
+    { wch: 18 }  // Tahun Ajaran
+  ];
+
+  ws['!rows'] = [
+    { hpt: 60 }, // Row 0 (Panduan)
+    { hpt: 28 }, // Row 1 (Header)
+    { hpt: 20 }, // Row 2 (Data 1)
+    { hpt: 20 }  // Row 3 (Data 2)
+  ];
 
   XLSX.utils.book_append_sheet(wb, ws, 'Template Siswa');
 
@@ -88,16 +103,16 @@ async function importSiswa(req, res, next) {
     const unresolved = [];
 
     for (let i = 0; i < dataRows.length; i++) {
-      const [nama, nisn, tingkat, jurusanRaw, nomor] = dataRows[i].map(v => String(v).trim());
+      const [nama, nisn, tingkat, jurusanRaw, nomor, ruang, tahunAjaran] = dataRows[i].map(v => String(v ?? '').trim());
       if (!nama || !nisn || !tingkat) continue;
 
       const jurusan = resolveJurusan(jurusanRaw);
       const rowNum  = i + 3; // offset: 1 panduan + 1 header + 1-based
 
       if (!jurusan) {
-        unresolved.push({ row: rowNum, nama, nisn, tingkat: tingkat.toUpperCase(), jurusanRaw, nomor });
+        unresolved.push({ row: rowNum, nama, nisn, tingkat: tingkat.toUpperCase(), jurusanRaw, nomor, ruang, tahunAjaran });
       } else {
-        resolved.push({ nama, nisn, tingkat: tingkat.toUpperCase(), jurusan, nomor });
+        resolved.push({ nama, nisn, tingkat: tingkat.toUpperCase(), jurusan, nomor, ruang, tahunAjaran });
       }
     }
 
@@ -135,6 +150,7 @@ async function confirmImport(req, res, next) {
     const fixedRows = fixes.map(f => ({
       nama: f.nama, nisn: f.nisn,
       tingkat: f.tingkat, jurusan: f.jurusanFixed, nomor: f.nomor,
+      ruang: f.ruang, tahunAjaran: f.tahunAjaran
     }));
 
     const allRows = [...session.resolved, ...fixedRows];
@@ -145,7 +161,7 @@ async function confirmImport(req, res, next) {
   } catch (e) { next(e); }
 }
 
-// ── Helper: bulk insert ke tabel users + mapping class_id ────────────────────
+// ── Helper: bulk insert ke tabel users + mapping class_id + mapping roomId ───
 async function bulkInsert(rows) {
   const bcrypt = require('bcryptjs');
   let imported = 0;
@@ -154,16 +170,59 @@ async function bulkInsert(rows) {
   const classes = await prisma.class.findMany({ select: { id: true, name: true } });
   const classMap = Object.fromEntries(classes.map(c => [c.name.toUpperCase(), c.id]));
 
-  for (const { nama, nisn, tingkat, jurusan, nomor } of rows) {
+  // Ambil semua room sekaligus (untuk lookup roomId)
+  const rooms = await prisma.room.findMany({ select: { id: true, name: true } });
+
+  // Normalisasi helper untuk perbandingan ruang fleksibel (SaaS-grade)
+  const normalizeRoom = str => (str || '').trim().replace(/[\s-]/g, '').toUpperCase();
+
+  for (const { nama, nisn, tingkat, jurusan, nomor, ruang, tahunAjaran } of rows) {
     const namaKelas = buildNamaKelas(tingkat, jurusan, nomor);
     const classId   = classMap[namaKelas.toUpperCase()] ?? null;
     const password  = await bcrypt.hash('siswa123', 10);
 
+    const rName = ruang ? String(ruang).trim() : null;
+    
+    // Cari roomId dengan perbandingan fleksibel: exact match -> normalized match
+    let roomId = null;
+    if (rName) {
+      const cleanInput = rName.toUpperCase();
+      const exactMatch = rooms.find(r => r.name.toUpperCase() === cleanInput);
+      if (exactMatch) {
+        roomId = exactMatch.id;
+      } else {
+        const normInput = normalizeRoom(cleanInput);
+        const normMatch = rooms.find(r => normalizeRoom(r.name) === normInput);
+        if (normMatch) {
+          roomId = normMatch.id;
+        }
+      }
+    }
+
     try {
       await prisma.user.upsert({
         where: { nisn },
-        update: { name: nama, class: namaKelas, classId, verified: true },
-        create: { name: nama, nisn, password, class: namaKelas, classId, role: 'student', verified: true },
+        update: { 
+          name: nama, 
+          class: namaKelas, 
+          classId, 
+          room: rName, 
+          roomId, 
+          verified: true,
+          academicYear: tahunAjaran || null
+        },
+        create: { 
+          name: nama, 
+          nisn, 
+          password, 
+          class: namaKelas, 
+          classId, 
+          room: rName, 
+          roomId, 
+          role: 'student', 
+          verified: true,
+          academicYear: tahunAjaran || null
+        },
       });
       imported++;
     } catch (_) { /* skip duplikat / error baris */ }

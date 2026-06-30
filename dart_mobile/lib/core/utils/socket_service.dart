@@ -78,11 +78,15 @@ class SocketService {
     // ── WebSocket Listeners ──────────────────────────────────────────────────
     _socket!.on('pin-generated', (data) {
       debugPrint('[SocketService] Event received: pin-generated -> $data');
+      // Reset ke null terlebih dahulu agar listener SELALU dipanggil,
+      // bahkan jika event yang sama diterima dua kali berturut-turut.
+      pinGeneratedEvent.value = null;
       pinGeneratedEvent.value = Map<String, dynamic>.from(data);
     });
 
     _socket!.on('student-reset', (data) {
       debugPrint('[SocketService] Event received: student-reset -> $data');
+      studentResetEvent.value = null;
       studentResetEvent.value = Map<String, dynamic>.from(data);
     });
 

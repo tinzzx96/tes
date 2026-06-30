@@ -1,0 +1,3189 @@
+<!DOCTYPE html>
+<html lang="id" class="h-full">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard Admin Claymorphism | EXAM PONCOL</title>
+  
+  <!-- Google Fonts & Icons -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,100..900;1,100..900&family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Tailwind Configuration -->
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            'barlow': ['Barlow Condensed', 'sans-serif'],
+            'inter': ['Inter', 'sans-serif'],
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Claymorphism Design System CSS -->
+  <style>
+    :root {
+      --clay-bg-dark: #0b0d16;
+      --clay-card-dark: #161925;
+      
+      --clay-primary: #ef4444; /* Red */
+      --clay-success: #10b981; /* Green */
+      --clay-warning: #f59e0b; /* Yellow/Gold */
+      --clay-info: #3b82f6;    /* Blue */
+      
+      /* Inset highlights for clay effects */
+      --clay-inset-white: inset 3px 3px 6px rgba(255, 255, 255, 0.08);
+      --clay-inset-black: inset -3px -3px 6px rgba(0, 0, 0, 0.45);
+      
+      /* Button specific inner highlights */
+      --btn-inset-white: inset 4px 4px 6px rgba(255, 255, 255, 0.35);
+      --btn-inset-black: inset -4px -4px 6px rgba(0, 0, 0, 0.3);
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: radial-gradient(circle at 10% 20%, #151828 0%, #08090f 100%);
+      color: #e2e8f0;
+      overflow-x: hidden;
+    }
+
+    /* Custom Scrollbar styled for clay dashboard */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: rgba(8, 9, 15, 0.5);
+      border-radius: 999px;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: var(--clay-card-dark);
+      border-radius: 999px;
+      box-shadow: inset 1px 1px 3px rgba(255, 255, 255, 0.05), inset -1px -1px 3px rgba(0, 0, 0, 0.5);
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #252a3d;
+    }
+
+    /* CLAYMORPHIC ELEMENTS */
+    
+    /* Clay Sidebar */
+    .clay-sidebar {
+      background: #10121d;
+      box-shadow: 
+        10px 0px 30px rgba(0, 0, 0, 0.5),
+        inset 1px 0px 0px rgba(255, 255, 255, 0.05);
+      border-right: 1px solid rgba(255, 255, 255, 0.02);
+    }
+
+    /* Clay Panels & Cards (Standard Dark Clay) */
+    .clay-panel {
+      background: var(--clay-card-dark);
+      border-radius: 24px;
+      box-shadow: 
+        8px 8px 16px rgba(0, 0, 0, 0.45), 
+        -4px -4px 16px rgba(255, 255, 255, 0.01),
+        var(--clay-inset-white),
+        var(--clay-inset-black);
+      border: 1px solid rgba(255, 255, 255, 0.02);
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    
+    .clay-panel-hover:hover {
+      transform: translateY(-2px);
+      box-shadow: 
+        12px 12px 24px rgba(0, 0, 0, 0.55), 
+        -4px -4px 20px rgba(255, 255, 255, 0.02),
+        var(--clay-inset-white),
+        var(--clay-inset-black);
+    }
+
+    /* Clay Primary Red Card / Panel */
+    .clay-panel-primary {
+      background: linear-gradient(135deg, #d32f2f, #b71c1c);
+      border-radius: 24px;
+      box-shadow: 
+        6px 6px 14px rgba(0, 0, 0, 0.4), 
+        inset 3px 3px 6px rgba(255, 255, 255, 0.25),
+        inset -3px -3px 6px rgba(0, 0, 0, 0.3);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    /* Clay Accent Yellow/Gold Card */
+    .clay-panel-warning {
+      background: linear-gradient(135deg, #d4af37, #aa8410);
+      border-radius: 24px;
+      box-shadow: 
+        6px 6px 14px rgba(0, 0, 0, 0.4), 
+        inset 3px 3px 6px rgba(255, 255, 255, 0.3),
+        inset -3px -3px 6px rgba(0, 0, 0, 0.35);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+    }
+
+    /* Clay Green Card */
+    .clay-panel-success {
+      background: linear-gradient(135deg, #059669, #064e3b);
+      border-radius: 24px;
+      box-shadow: 
+        6px 6px 14px rgba(0, 0, 0, 0.4), 
+        inset 3px 3px 6px rgba(255, 255, 255, 0.25),
+        inset -3px -3px 6px rgba(0, 0, 0, 0.3);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    /* Clay Blue Card */
+    .clay-panel-info {
+      background: linear-gradient(135deg, #1d4ed8, #1e3a8a);
+      border-radius: 24px;
+      box-shadow: 
+        6px 6px 14px rgba(0, 0, 0, 0.4), 
+        inset 3px 3px 6px rgba(255, 255, 255, 0.25),
+        inset -3px -3px 6px rgba(0, 0, 0, 0.3);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    /* Clay Buttons */
+    .clay-btn {
+      border-radius: 16px;
+      font-weight: 700;
+      transition: all 0.2s ease;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      text-transform: uppercase;
+      font-size: 0.75rem;
+      letter-spacing: 0.05em;
+    }
+    
+    .clay-btn:active {
+      transform: scale(0.95);
+    }
+
+    .clay-btn-primary {
+      background: linear-gradient(135deg, #e53e3e, #c53030);
+      color: white;
+      box-shadow: 
+        4px 4px 10px rgba(0, 0, 0, 0.3),
+        var(--btn-inset-white),
+        var(--btn-inset-black);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    .clay-btn-primary:hover {
+      background: linear-gradient(135deg, #f56565, #e53e3e);
+      box-shadow: 
+        6px 6px 12px rgba(0, 0, 0, 0.35),
+        var(--btn-inset-white),
+        var(--btn-inset-black);
+    }
+
+    .clay-btn-secondary {
+      background: #25293c;
+      color: #a0aec0;
+      box-shadow: 
+        4px 4px 10px rgba(0, 0, 0, 0.35),
+        var(--clay-inset-white),
+        var(--clay-inset-black);
+      border: 1px solid rgba(255, 255, 255, 0.03);
+    }
+    .clay-btn-secondary:hover {
+      background: #2d3248;
+      color: #edf2f7;
+    }
+
+    .clay-btn-success {
+      background: linear-gradient(135deg, #10b981, #059669);
+      color: white;
+      box-shadow: 
+        4px 4px 10px rgba(0, 0, 0, 0.3),
+        var(--btn-inset-white),
+        var(--btn-inset-black);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    .clay-btn-success:hover {
+      background: linear-gradient(135deg, #34d399, #10b981);
+    }
+
+    .clay-btn-warning {
+      background: linear-gradient(135deg, #f59e0b, #d97706);
+      color: white;
+      box-shadow: 
+        4px 4px 10px rgba(0, 0, 0, 0.3),
+        var(--btn-inset-white),
+        var(--btn-inset-black);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+    }
+    .clay-btn-warning:hover {
+      background: linear-gradient(135deg, #fbbf24, #f59e0b);
+    }
+
+    /* Clay Table elements */
+    .clay-table-row {
+      background: rgba(22, 25, 37, 0.5);
+      border-radius: 16px;
+      box-shadow: 
+        inset 2px 2px 4px rgba(255, 255, 255, 0.02),
+        inset -2px -2px 4px rgba(0, 0, 0, 0.2);
+      transition: all 0.2s ease;
+    }
+    .clay-table-row:hover {
+      background: rgba(22, 25, 37, 0.85);
+      transform: scale(1.002);
+    }
+
+    /* Clay Inputs & Selects */
+    .clay-input {
+      background: #0f1118;
+      border-radius: 16px;
+      box-shadow: 
+        inset 3px 3px 6px rgba(0, 0, 0, 0.5),
+        inset -2px -2px 4px rgba(255, 255, 255, 0.03),
+        1px 1px 2px rgba(255, 255, 255, 0.02);
+      border: 1px solid rgba(255, 255, 255, 0.02);
+      color: white;
+      padding: 12px 16px;
+      font-size: 0.875rem;
+      transition: all 0.3s ease;
+    }
+    .clay-input:focus {
+      outline: none;
+      border-color: rgba(239, 68, 68, 0.5);
+      box-shadow: 
+        inset 3px 3px 6px rgba(0, 0, 0, 0.6),
+        inset -2px -2px 4px rgba(255, 255, 255, 0.05),
+        0 0 12px rgba(239, 68, 68, 0.25);
+    }
+
+    /* Active indicator for menu list */
+    .clay-menu-active {
+      background: linear-gradient(135deg, #1b2035, #141727);
+      box-shadow: 
+        4px 4px 8px rgba(0, 0, 0, 0.3),
+        var(--clay-inset-white),
+        var(--clay-inset-black);
+      border: 1px solid rgba(255, 255, 255, 0.03);
+      color: #fff !important;
+    }
+    .clay-menu-active .menu-icon {
+      color: var(--clay-primary);
+      text-shadow: 0px 0px 8px rgba(239, 68, 68, 0.5);
+    }
+
+    /* Clay Badges */
+    .clay-badge {
+      font-size: 0.7rem;
+      font-weight: 700;
+      padding: 4px 10px;
+      border-radius: 9999px;
+      text-transform: uppercase;
+      letter-spacing: 0.025em;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .clay-badge-aktif {
+      background: rgba(16, 185, 129, 0.15);
+      color: #34d399;
+      box-shadow: inset 1px 1px 2px rgba(255, 255, 255, 0.05), inset -1px -1px 2px rgba(0, 0, 0, 0.3);
+      border: 1px solid rgba(16, 185, 129, 0.2);
+    }
+    .clay-badge-nonaktif {
+      background: rgba(156, 163, 175, 0.1);
+      color: #9ca3af;
+      box-shadow: inset 1px 1px 2px rgba(255, 255, 255, 0.02), inset -1px -1px 2px rgba(0, 0, 0, 0.3);
+      border: 1px solid rgba(156, 163, 175, 0.15);
+    }
+    .clay-badge-draft {
+      background: rgba(245, 159, 11, 0.12);
+      color: #fbbf24;
+      box-shadow: inset 1px 1px 2px rgba(255, 255, 255, 0.05), inset -1px -1px 2px rgba(0, 0, 0, 0.3);
+      border: 1px solid rgba(245, 159, 11, 0.18);
+    }
+
+    /* Radar sweep animation */
+    @keyframes radar-sweep {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+    .radar-sweep-element {
+      animation: radar-sweep 4s linear infinite;
+      transform-origin: bottom right;
+    }
+
+    /* Modal Animation */
+    @keyframes modal-bounce {
+      0% { transform: scale(0.9) translateY(20px); opacity: 0; }
+      100% { transform: scale(1) translateY(0); opacity: 1; }
+    }
+    .modal-animate {
+      animation: modal-bounce 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+    }
+  </style>
+</head>
+<body class="h-full text-slate-100 antialiased flex selection:bg-red-500 selection:text-white">
+
+  <!-- ================= SIDEBAR ================= -->
+  <aside class="clay-sidebar hidden md:flex flex-col w-64 shrink-0 h-screen sticky top-0 z-50">
+    <!-- Brand / Header -->
+    <div class="h-20 flex items-center px-6 border-b border-white/5 gap-3 shrink-0">
+      <div class="w-10 h-10 rounded-2xl bg-gradient-to-br from-red-500 to-red-700 flex items-center justify-center shadow-[inset_2px_2px_4px_rgba(255,255,255,0.4),inset_-2px_-2px_4px_rgba(0,0,0,0.3),3px_3px_8px_rgba(0,0,0,0.4)]">
+        <span class="material-icons text-white text-lg">school</span>
+      </div>
+      <div>
+        <h1 class="font-barlow text-2xl tracking-widest leading-none font-black text-white uppercase">
+          EXAM<span class="text-amber-500">PONCOL</span>
+        </h1>
+        <p class="text-[9px] uppercase tracking-widest text-slate-400 font-bold mt-0.5">ADMIN SEKOLAH</p>
+      </div>
+    </div>
+
+    <!-- Navigation Section -->
+    <nav class="flex-1 px-4 py-6 space-y-5 overflow-y-auto" id="sidebar-nav">
+      <!-- Generated dynamically based on categories -->
+    </nav>
+
+    <!-- Sidebar Footer -->
+    <div class="p-4 border-t border-white/5 bg-black/15 shrink-0">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-2xl bg-red-600 border border-white/10 flex items-center justify-center text-white font-extrabold text-sm shadow-[inset_2px_2px_4px_rgba(255,255,255,0.3),inset_-2px_-2px_4px_rgba(0,0,0,0.3)]">
+          MA
+        </div>
+        <div class="min-w-0 flex-1">
+          <p class="text-xs font-bold text-white truncate">Martin Admin</p>
+          <p class="text-[10px] text-slate-400 truncate">martin@poncol.sch.id</p>
+        </div>
+        <button onclick="confirmLogout()" class="p-1.5 text-slate-400 hover:text-red-500 transition-colors">
+          <span class="material-icons text-base">logout</span>
+        </button>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ================= MAIN WORKSPACE ================= -->
+  <main class="flex-1 flex flex-col min-w-0 relative h-screen overflow-y-auto">
+    
+    <!-- ================= TOP BAR ================= -->
+    <header class="h-20 border-b border-white/5 bg-[#10121d]/75 backdrop-blur-md sticky top-0 z-40 flex items-center justify-between px-6 md:px-8 shrink-0">
+      
+      <!-- Context Title & Mobile Hamburger -->
+      <div class="flex items-center gap-4">
+        <!-- Mobile hamburger menu -->
+        <button class="block md:hidden p-2 rounded-xl bg-[#161925] text-slate-400 hover:text-white transition-all shadow-[inset_1px_1px_2px_rgba(255,255,255,0.05),inset_-1px_-1px_2px_rgba(0,0,0,0.3)]" onclick="toggleMobileSidebar()">
+          <span class="material-icons">menu</span>
+        </button>
+        
+        <div>
+          <div class="flex items-center gap-2">
+            <span class="w-1 h-3.5 bg-red-500 rounded-full shadow-[0_0_6px_rgba(239,68,68,0.5)]"></span>
+            <h2 class="text-base font-black tracking-wider uppercase text-white font-barlow" id="current-tab-title">Dashboard Admin</h2>
+          </div>
+          <p class="text-[10px] text-slate-400 font-medium tracking-wide">EXAM CENTRAL CONTROL SYSTEM</p>
+        </div>
+      </div>
+
+      <!-- Search Bar -->
+      <div class="hidden lg:block w-80 relative">
+        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+          <span class="material-icons text-slate-500 text-sm">search</span>
+        </div>
+        <input type="text" id="global-search" placeholder="Cari data, ujian, proktor..." 
+          class="w-full pl-9 pr-12 py-2 rounded-2xl bg-[#0d0e15] border border-white/5 text-white placeholder-slate-500 text-xs focus:outline-none focus:border-red-500/50 focus:ring-1 focus:ring-red-500/30 transition-all shadow-[inset_2px_2px_4px_rgba(0,0,0,0.5)]"
+          oninput="handleGlobalSearch(this.value)">
+        <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+          <kbd class="px-1.5 py-0.5 text-[8px] font-bold text-slate-400 border border-white/10 rounded bg-[#090a0f]">Ctrl+K</kbd>
+        </div>
+
+        <!-- Search dropdown results -->
+        <div id="search-results" class="hidden absolute top-full left-0 right-0 mt-2 bg-[#161925] border border-white/5 rounded-2xl shadow-2xl p-2 z-50 clay-panel">
+          <div class="text-[9px] font-bold uppercase tracking-widest text-slate-400 px-2 py-1">Hasil Pencarian Cepat</div>
+          <div class="mt-1 space-y-0.5" id="search-results-list"></div>
+        </div>
+      </div>
+
+      <!-- Utility Icons & Profile -->
+      <div class="flex items-center gap-4">
+        <div class="flex items-center gap-2 border-r border-white/5 pr-4">
+          <!-- Notification Bell -->
+          <div class="relative">
+            <button onclick="toggleNotificationDropdown()" class="p-2 rounded-xl text-slate-400 hover:text-white transition-all hover:bg-white/5 relative">
+              <span class="material-icons text-lg">notifications</span>
+              <!-- Unread notification indicator badge -->
+              <span class="absolute top-1 right-1 w-2.5 h-2.5 bg-red-500 border-2 border-[#10121d] rounded-full flex items-center justify-center">
+                <span class="absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75 animate-ping"></span>
+              </span>
+            </button>
+
+            <!-- Notifications Dropdown -->
+            <div id="notifications-dropdown" class="hidden absolute right-0 mt-3 w-80 bg-[#161925] border border-white/5 rounded-2xl shadow-2xl overflow-hidden z-50 clay-panel">
+              <div class="p-4 border-b border-white/5 flex items-center justify-between">
+                <h4 class="font-bold text-xs uppercase tracking-wider text-white">Notifikasi Real-Time</h4>
+                <span class="text-[9px] font-semibold text-red-500 bg-red-500/10 px-2 py-0.5 rounded-full border border-red-500/20">3 Baru</span>
+              </div>
+              <div class="divide-y divide-white/5 max-h-64 overflow-y-auto" id="real-time-notification-list">
+                <!-- Loaded in JS -->
+              </div>
+              <a href="#" class="block text-center py-2.5 text-[9px] font-bold uppercase tracking-wider bg-black/10 text-slate-400 hover:text-white hover:bg-black/20 transition-colors">
+                Tampilkan Semua Notifikasi
+              </a>
+            </div>
+          </div>
+
+          <!-- Settings shortcut -->
+          <button onclick="openSettingsModal()" class="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/5 transition-all">
+            <span class="material-icons text-lg">settings</span>
+          </button>
+        </div>
+
+        <!-- Admin Profile -->
+        <div class="flex items-center gap-2.5">
+          <div class="text-right hidden sm:block">
+            <p class="text-xs font-bold text-white leading-tight">Admin Utama</p>
+            <p class="text-[9px] text-amber-500 uppercase font-black tracking-wider leading-none">Super Administrator</p>
+          </div>
+          <div class="w-10 h-10 rounded-2xl bg-red-600 border border-white/10 flex items-center justify-center text-white font-extrabold text-sm shadow-[inset_2px_2px_4px_rgba(255,255,255,0.3),inset_-2px_-2px_4px_rgba(0,0,0,0.3)] relative cursor-pointer" onclick="openProctoringModal()">
+            MA
+            <span class="absolute -bottom-1 -right-1 w-3 h-3 rounded-full bg-emerald-500 border-2 border-[#10121d]"></span>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- ================= SCROLLABLE CONTENT BODY ================= -->
+    <div class="flex-1 flex flex-col lg:flex-row w-full min-w-0">
+      
+      <!-- Primary Tab Content Area -->
+      <div class="flex-1 px-6 md:px-8 py-6 md:py-8 min-w-0" id="main-content-area">
+        <!-- Rendered Dynamically by JS -->
+      </div>
+      
+      <!-- Persistent Global Activity Sidebar (Right) -->
+      <aside class="hidden lg:flex flex-col w-72 shrink-0 bg-[#0e1017] border-l border-white/5 sticky top-20 h-[calc(100vh-80px)] z-10">
+        <div class="p-4 border-b border-white/5 flex items-center justify-between shrink-0">
+          <h2 class="font-inter font-bold text-xs text-white uppercase tracking-wider">Aktivitas Terbaru</h2>
+          <div class="flex items-center gap-1.5">
+            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+            <span class="text-[9px] text-slate-400 uppercase font-bold tracking-wider">Live Feed</span>
+          </div>
+        </div>
+        
+        <!-- Live activity list container -->
+        <div class="flex-1 overflow-y-auto min-h-0 flex flex-col justify-between" id="global-activity-scroll-container">
+          <div id="global-activity-feed" class="flex flex-col flex-1 divide-y divide-white/5">
+            <!-- Loaded in JS -->
+          </div>
+          <button onclick="openAllActivitiesModal()" id="global-activity-show-all" class="w-full py-3 text-center text-[10px] text-slate-400 hover:text-white font-bold transition-colors hover:bg-white/5 border-t border-white/5">
+            Lihat Semua Log
+          </button>
+        </div>
+      </aside>
+
+    </div>
+
+    <!-- FLOATING ACTION BUTTON (FAB) -->
+    <div class="fixed bottom-6 right-6 z-40">
+      <button onclick="handleFabClick()" class="w-14 h-14 rounded-full bg-gradient-to-br from-red-500 to-red-700 border-2 border-amber-500 text-white shadow-[0_4px_15px_rgba(239,68,68,0.4),inset_3px_3px_6px_rgba(255,255,255,0.4),inset_-3px_-3px_6px_rgba(0,0,0,0.3)] hover:scale-110 active:scale-95 transform transition-all duration-300 flex items-center justify-center">
+        <span class="material-icons text-2xl">add</span>
+      </button>
+    </div>
+
+  </main>
+
+  <!-- ======================================================= -->
+  <!-- ======================== MODALS ======================== -->
+  <!-- ======================================================= -->
+
+  <!-- 1. Real-Time Proctoring Radar Modal -->
+  <div id="proctoring-modal" class="hidden fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4">
+    <div class="fixed inset-0 bg-black/85 backdrop-blur-md" onclick="closeProctoringModal()"></div>
+    <div class="relative clay-panel max-w-4xl w-full p-6 md:p-8 overflow-hidden z-10 modal-animate flex flex-col gap-5">
+      <div class="flex items-center justify-between pb-3 border-b border-white/5">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-2xl bg-red-500/10 border border-red-500/30 flex items-center justify-center text-red-500">
+            <span class="material-icons">security</span>
+          </div>
+          <div>
+            <h3 class="font-barlow text-lg font-black uppercase text-white tracking-wider">Supervision Radar Panel</h3>
+            <p class="text-[10px] text-slate-400 mt-0.5">Sistem Deteksi Pelanggaran Real-Time Siswa</p>
+          </div>
+        </div>
+        <button onclick="closeProctoringModal()" class="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white transition-colors">
+          <span class="material-icons text-sm">close</span>
+        </button>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Radar Visualizer -->
+        <div class="lg:col-span-1 flex flex-col items-center justify-center bg-black/30 border border-white/5 rounded-3xl p-6 relative overflow-hidden h-64 lg:h-auto">
+          <!-- Background target lines -->
+          <div class="absolute inset-0 flex items-center justify-center">
+            <div class="w-48 h-48 border border-white/5 rounded-full flex items-center justify-center">
+              <div class="w-32 h-32 border border-white/5 rounded-full flex items-center justify-center">
+                <div class="w-16 h-16 border border-white/5 rounded-full"></div>
+              </div>
+            </div>
+            <div class="absolute h-48 w-px bg-white/5"></div>
+            <div class="absolute w-48 h-px bg-white/5"></div>
+          </div>
+          
+          <!-- Radar Sweep -->
+          <div class="absolute bottom-1/2 right-1/2 w-24 h-24 bg-gradient-to-tr from-transparent to-red-500/15 rounded-tl-full origin-bottom-right radar-sweep-element pointer-events-none"></div>
+
+          <!-- Radar Targets Blips -->
+          <div class="absolute top-1/3 left-1/3 w-2.5 h-2.5 bg-emerald-500 rounded-full animate-pulse shadow-[0_0_8px_#10b981]"></div>
+          <div class="absolute top-1/2 right-1/4 w-2.5 h-2.5 bg-emerald-500 rounded-full animate-pulse shadow-[0_0_8px_#10b981]"></div>
+          <div class="absolute bottom-1/3 left-1/2 w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse shadow-[0_0_8px_#ef4444]"></div>
+          
+          <div class="z-10 text-center mt-auto">
+            <p class="text-[9px] font-bold uppercase tracking-widest text-slate-500">Status Frekuensi Sync</p>
+            <p class="text-xs font-black text-white font-barlow tracking-wider mt-1">WS NODE ACTIVE • 4 CHANNELS</p>
+          </div>
+        </div>
+
+        <!-- Real-Time Student Activity Monitoring List -->
+        <div class="lg:col-span-2 space-y-3">
+          <div class="flex items-center justify-between">
+            <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400">Siswa Ujian Aktif</h4>
+            <span class="text-[9px] font-bold text-red-400 bg-red-500/10 px-2.5 py-0.5 rounded-full border border-red-500/20">1 Peringatan Aktif</span>
+          </div>
+
+          <div class="overflow-x-auto rounded-2xl border border-white/5 bg-black/20">
+            <table class="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr class="border-b border-white/5 bg-black/30 text-[9px] uppercase font-bold tracking-wider text-slate-400">
+                  <th class="p-3">Nama Siswa</th>
+                  <th class="p-3">Mata Pelajaran</th>
+                  <th class="p-3">Status Layar</th>
+                  <th class="p-3 text-center">Tindakan</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-white/5" id="proctoring-radar-table">
+                <!-- Loaded in JS -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="flex items-center justify-between pt-3 border-t border-white/5 text-[10px] text-slate-400">
+        <span>WebSocket Server: <strong class="text-slate-300">ws://localhost:8000/realtime</strong></span>
+        <button onclick="closeProctoringModal()" class="clay-btn clay-btn-secondary px-5 py-2.5">Tutup Radar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. Create/Edit Item Modal -->
+  <div id="form-modal" class="hidden fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4">
+    <div class="fixed inset-0 bg-black/85 backdrop-blur-md" onclick="closeFormModal()"></div>
+    <div class="relative clay-panel max-w-md w-full p-6 overflow-hidden z-10 modal-animate flex flex-col gap-4">
+      <div class="flex items-center justify-between pb-3 border-b border-white/5">
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-500">
+            <span class="material-icons text-sm" id="form-modal-icon">add</span>
+          </div>
+          <div>
+            <h3 class="font-barlow text-lg font-black uppercase text-white tracking-wider" id="form-modal-title">Tambah Data</h3>
+            <p class="text-[10px] text-slate-400 mt-0.5">Entri data ke database EXAM PONCOL</p>
+          </div>
+        </div>
+        <button onclick="closeFormModal()" class="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white transition-colors">
+          <span class="material-icons text-sm">close</span>
+        </button>
+      </div>
+
+      <!-- Dynamic form content loaded by JS based on model role -->
+      <form id="dynamic-form" class="space-y-4" onsubmit="handleFormSubmit(event)">
+        <div id="form-fields-container" class="space-y-4"></div>
+        <div id="form-error" class="hidden text-red-500 text-xs font-semibold"></div>
+        <button type="submit" class="w-full py-3.5 clay-btn clay-btn-primary mt-2">
+          Simpan Entri ke Database
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- 3. Configuration & Settings Modal -->
+  <div id="settings-modal" class="hidden fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4">
+    <div class="fixed inset-0 bg-black/85 backdrop-blur-md" onclick="closeSettingsModal()"></div>
+    <div class="relative clay-panel max-w-md w-full p-6 overflow-hidden z-10 modal-animate flex flex-col gap-4">
+      <div class="flex items-center justify-between pb-3 border-b border-white/5">
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 rounded-2xl bg-red-500/10 border border-red-500/30 flex items-center justify-center text-red-500">
+            <span class="material-icons text-sm">settings</span>
+          </div>
+          <div>
+            <h3 class="font-barlow text-lg font-black uppercase text-white tracking-wider">Konfigurasi Pengukuran</h3>
+            <p class="text-[10px] text-slate-400 mt-0.5">Pengaturan Keamanan & WebSocket</p>
+          </div>
+        </div>
+        <button onclick="closeSettingsModal()" class="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white transition-colors">
+          <span class="material-icons text-sm">close</span>
+        </button>
+      </div>
+
+      <div class="space-y-4 text-xs">
+        <div>
+          <label class="block font-bold uppercase tracking-wider text-slate-400 mb-1.5">Interval Sinkronisasi (Detik)</label>
+          <input type="number" id="setting-sync-interval" value="30" class="w-full clay-input">
+          <p class="text-[9px] text-slate-500 mt-1">Interval fallback jika WebSocket terputus.</p>
+        </div>
+
+        <div>
+          <label class="block font-bold uppercase tracking-wider text-slate-400 mb-1.5">Maksimum Keluar Layar</label>
+          <input type="number" id="setting-max-out" value="3" class="w-full clay-input">
+          <p class="text-[9px] text-slate-500 mt-1">Siswa otomatis terkunci jika melampaui batas ini.</p>
+        </div>
+
+        <div class="flex items-center justify-between p-3.5 bg-black/25 rounded-2xl border border-white/5">
+          <div>
+            <h4 class="font-bold text-white">WebSocket Heartbeat</h4>
+            <p class="text-[9px] text-slate-500 mt-0.5 font-medium">Kirim ping secara berkala untuk menjaga koneksi</p>
+          </div>
+          <label class="relative inline-flex items-center cursor-pointer">
+            <input type="checkbox" id="setting-heartbeat" checked class="sr-only peer">
+            <div class="w-9 h-5 bg-slate-800 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-slate-400 after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-red-500 peer-checked:after:bg-white"></div>
+          </label>
+        </div>
+
+        <button onclick="saveSettings()" class="w-full py-3.5 clay-btn clay-btn-primary mt-2">
+          Terapkan Pengaturan
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 4. Excel Import Modal -->
+  <div id="import-modal" class="hidden fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4">
+    <div class="fixed inset-0 bg-black/85 backdrop-blur-md" onclick="closeImportModal()"></div>
+    <div class="relative clay-panel max-w-md w-full p-6 overflow-hidden z-10 modal-animate flex flex-col gap-4">
+      <div class="flex items-center justify-between pb-3 border-b border-white/5">
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-500">
+            <span class="material-icons text-sm">upload_file</span>
+          </div>
+          <div>
+            <h3 class="font-barlow text-lg font-black uppercase text-white tracking-wider">Import Siswa Excel</h3>
+            <p class="text-[10px] text-slate-400 mt-0.5">Upload master data siswa (.xlsx)</p>
+          </div>
+        </div>
+        <button onclick="closeImportModal()" class="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white transition-colors">
+          <span class="material-icons text-sm">close</span>
+        </button>
+      </div>
+
+      <div class="space-y-4">
+        <div class="p-4 bg-black/20 border border-white/5 rounded-2xl">
+          <p class="text-xs text-slate-400 mb-3 leading-relaxed">
+            Unduh template Excel resmi, lengkapi data siswa, lalu upload kembali file tersebut.
+          </p>
+          <button onclick="downloadExcelTemplate()" class="clay-btn clay-btn-secondary px-4 py-2 text-xs">
+            <span class="material-icons text-sm text-emerald-400">download</span>
+            Unduh Template
+          </button>
+        </div>
+        
+        <div>
+          <label class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5">File Excel (.xlsx)</label>
+          <input type="file" id="import-excel-file" accept=".xlsx" class="w-full text-xs text-slate-400 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:bg-white/5 file:text-slate-300 file:font-semibold hover:file:bg-white/10 file:cursor-pointer">
+        </div>
+
+        <div id="import-error" class="hidden text-red-500 text-xs font-semibold"></div>
+
+        <button onclick="processExcelUpload()" class="w-full py-3.5 clay-btn clay-btn-success mt-2">
+          Upload & Proses File
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 5. Typo Major Resolve Modal -->
+  <div id="typo-modal" class="hidden fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4">
+    <div class="fixed inset-0 bg-black/85 backdrop-blur-md" onclick="closeTypoModal()"></div>
+    <div class="relative clay-panel max-w-md w-full p-6 overflow-hidden z-10 modal-animate flex flex-col gap-4">
+      <div class="flex items-center justify-between pb-3 border-b border-white/5">
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-500">
+            <span class="material-icons text-sm">warning</span>
+          </div>
+          <div>
+            <h3 class="font-barlow text-lg font-black uppercase text-white tracking-wider">Jurusan Tidak Dikenali</h3>
+            <p class="text-[10px] text-slate-400 mt-0.5">Konfirmasi Typo Penulisan Jurusan</p>
+          </div>
+        </div>
+        <button onclick="closeTypoModal()" class="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white transition-colors">
+          <span class="material-icons text-sm">close</span>
+        </button>
+      </div>
+
+      <div class="space-y-4">
+        <p class="text-xs text-slate-400 leading-relaxed">
+          Terdapat baris data siswa dengan jurusan yang tidak terdaftar di sistem. Pilih pemetaan yang benar di bawah ini:
+        </p>
+
+        <div id="typo-rows-container" class="space-y-3 max-h-60 overflow-y-auto pr-1">
+          <!-- Populated by JS -->
+        </div>
+
+        <button onclick="saveTypoResolutions()" class="w-full py-3.5 clay-btn clay-btn-primary mt-2">
+          Selesaikan & Lanjutkan Import
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification System -->
+  <div id="toast-container" class="fixed bottom-6 left-6 z-50 flex flex-col gap-3"></div>
+
+
+  <!-- ======================================================= -->
+  <!-- ==================== CORE SCRIPT ====================== -->
+  <!-- ======================================================= -->
+  <script>
+    // Constants matching backend constraints
+    const JURUSAN_LIST = ['RPL', 'DKV', 'TKRO', 'AKL', 'BP', 'TKJ'];
+
+    // Sidebar navigation definitions
+    const MENU_ITEMS = [
+      { type: 'heading', label: 'Utama' },
+      { id: 'overview', icon: 'dashboard', label: 'Overview' },
+      { type: 'heading', label: 'Kelola' },
+      { id: 'guru', icon: 'school', label: 'Kelola Guru' },
+      { id: 'siswa', icon: 'groups', label: 'Kelola Siswa' },
+      { id: 'ujian', icon: 'fact_check', label: 'Kelola Ujian' },
+      { type: 'heading', label: 'Konfigurasi' },
+      { id: 'mapel', icon: 'menu_book', label: 'Mata Pelajaran' },
+      { id: 'kelas', icon: 'class', label: 'Kelola Kelas' },
+      { id: 'proktor', icon: 'security', label: 'Kelola Proktor' },
+      { id: 'ruangan', icon: 'meeting_room', label: 'Kelola Ruangan' },
+      { id: 'token-sesi', icon: 'key', label: 'Token Sesi' },
+    ];
+
+    // Mock Database state
+    let state = {
+      activeTab: 'overview',
+      teachers: [
+        { id: 1, name: 'Dr. H. Bambang, M.Pd.', nisn: '198203152009011002', verified: true },
+        { id: 2, name: 'Bu Retno Lestari, S.Si.', nisn: '198711042014022001', verified: true },
+        { id: 3, name: 'Bu Lastri Handayani, S.Pd.', nisn: '199105202020032014', verified: false }
+      ],
+      students: [
+        { id: 1, name: 'Budi Santoso', nisn: '0081273940', class: 'XII RPL', room: 'LAB-KOM-1', academicYear: '2026/2027', year: '2026' },
+        { id: 2, name: 'Siti Aminah', nisn: '0085432190', class: 'XII RPL', room: 'LAB-KOM-1', academicYear: '2026/2027', year: '2026' },
+        { id: 3, name: 'Andi Wijaya', nisn: '0073948501', class: 'XII TKJ', room: 'LAB-KOM-2', academicYear: '2026/2027', year: '2026' },
+        { id: 4, name: 'Rian Hidayat', nisn: '0084920194', class: 'XI DKV', room: 'RUANG-12', academicYear: '2026/2027', year: '2026' },
+        { id: 5, name: 'Dimas Pratama', nisn: '0092183748', class: 'XI TKRO', room: 'RUANG-14', academicYear: '2026/2027', year: '2026' },
+        { id: 6, name: 'Lutfi Hakim', nisn: '0084920392', class: 'X AKL', room: 'RUANG-05', academicYear: '2026/2027', year: '2026' },
+        { id: 7, name: 'Dewi Lestari', nisn: '0074829103', class: 'XII BP', room: 'RUANG-12', academicYear: '2026/2027', year: '2026' },
+        { id: 8, name: 'Riko Setiawan', nisn: '0083920195', class: 'XI RPL', room: 'LAB-KOM-1', academicYear: '2026/2027', year: '2026' },
+        { id: 9, name: 'Ani Suryani', nisn: '0092940294', class: 'X TKJ', room: 'RUANG-05', academicYear: '2026/2027', year: '2026' }
+      ],
+      exams: [
+        { id: 1, title: 'UAS Kimia Analisis Ganjil', subject: 'Kimia Analisis', teacher: 'Bu Retno Lestari, S.Si.', teacherId: 2, token: 'KMA901', status: 'active', durationMinutes: 90, startTime: '2026-06-30T07:30', endTime: '2026-06-30T10:00', classes: [1, 2] },
+        { id: 2, title: 'PTS Matematika Dasar', subject: 'Matematika Dasar', teacher: 'Dr. H. Bambang, M.Pd.', teacherId: 1, token: 'MTK402', status: 'closed', durationMinutes: 120, startTime: '2026-06-29T08:00', endTime: '2026-06-29T11:00', classes: [1, 2, 3] },
+        { id: 3, title: 'Harian Fisika Quantum', subject: 'Fisika Quantum', teacher: 'Dr. H. Bambang, M.Pd.', teacherId: 1, token: 'FSQ221', status: 'active', durationMinutes: 60, startTime: '2026-06-30T09:00', endTime: '2026-06-30T11:00', classes: [3] },
+        { id: 4, title: 'PTS Biologi Sel', subject: 'Biologi Sel', teacher: 'Bu Lastri Handayani, S.Pd.', teacherId: 3, token: 'BIO339', status: 'active', durationMinutes: 90, startTime: '2026-06-30T13:00', endTime: '2026-06-30T15:00', classes: [4] },
+        { id: 5, title: 'UAS Bahasa Inggris', subject: 'Bahasa Inggris', teacher: 'Bu Lastri Handayani, S.Pd.', teacherId: 3, token: 'ING552', status: 'draft', durationMinutes: 120, startTime: '2026-07-02T08:00', endTime: '2026-07-02T11:00', classes: [5, 6] }
+      ],
+      questionBanks: [
+        { id: 1, name: 'Bank Soal Kimia Industri', subject: 'Kimia Analisis', questionCount: 45, creator: 'Bu Retno Lestari, S.Si.', creatorRole: 'teacher' },
+        { id: 2, name: 'Koleksi Soal Aljabar Linear', subject: 'Matematika Dasar', questionCount: 120, creator: 'Dr. H. Bambang, M.Pd.', creatorRole: 'teacher' },
+        { id: 3, name: 'Bank Soal Mekanika Klasik', subject: 'Fisika Quantum', questionCount: 30, creator: 'Dr. H. Bambang, M.Pd.', creatorRole: 'teacher' },
+        { id: 4, name: 'Bank Soal Organel Sel', subject: 'Biologi Sel', questionCount: 60, creator: 'Bu Lastri Handayani, S.Pd.', creatorRole: 'teacher' },
+        { id: 5, name: 'Bank Soal Grammar & Text', subject: 'Bahasa Inggris', questionCount: 50, creator: 'System Admin', creatorRole: 'admin' }
+      ],
+      classes: [
+        { id: 1, name: 'XII RPL', major: 'RPL', grade: 'XII', studentCount: 2, gradeId: 3 },
+        { id: 2, name: 'XI TKJ', major: 'TKJ', grade: 'XI', studentCount: 1, gradeId: 2 },
+        { id: 3, name: 'XII DKV', major: 'DKV', grade: 'XII', studentCount: 1, gradeId: 3 },
+        { id: 4, name: 'X AKL', major: 'AKL', grade: 'X', studentCount: 1, gradeId: 1 },
+        { id: 5, name: 'XI BP', major: 'BP', grade: 'XI', studentCount: 1, gradeId: 2 },
+        { id: 6, name: 'XII TKRO', major: 'TKRO', grade: 'XII', studentCount: 1, gradeId: 3 }
+      ],
+      proctors: [
+        { id: 1, name: 'Pak Joko Purnomo', nisn: '197902102008011003', room: 'LAB-KOM-1', roomId: 1, verified: true },
+        { id: 2, name: 'Bu Sri Wahyuni', nisn: '198509122010042002', room: 'LAB-KOM-2', roomId: 2, verified: true },
+        { id: 3, name: 'Pak Heri Susanto', nisn: '199304112022031005', room: 'RUANG-12', roomId: 3, verified: false }
+      ],
+      rooms: [
+        { id: 1, name: 'LAB-KOM-1', maxCapacity: 36 },
+        { id: 2, name: 'LAB-KOM-2', maxCapacity: 36 },
+        { id: 3, name: 'RUANG-12', maxCapacity: 32 },
+        { id: 4, name: 'RUANG-14', maxCapacity: 32 },
+        { id: 5, name: 'RUANG-05', maxCapacity: 30 }
+      ],
+      sessions: [
+        { id: 1, token: 'SESS-8291', room: 'LAB-KOM-1', roomId: 1, proctor: 'Pak Joko Purnomo', proctorId: 1, validFrom: '2026-06-30T07:00', validUntil: '2026-06-30T17:00', description: 'Ujian Akhir Semester Ganjil', active: true },
+        { id: 2, token: 'SESS-9103', room: 'LAB-KOM-2', roomId: 2, proctor: 'Bu Sri Wahyuni', proctorId: 2, validFrom: '2026-06-30T07:00', validUntil: '2026-06-30T17:00', description: 'Sesi Ujian Fisika Harian', active: true },
+        { id: 3, token: 'SESS-3382', room: 'RUANG-12', roomId: 3, proctor: 'Pak Heri Susanto', proctorId: 3, validFrom: '2026-06-30T08:00', validUntil: '2026-06-30T12:00', description: 'Sesi Ujian Susulan', active: false }
+      ],
+      activityLogs: [
+        { action: 'LOGIN', actorName: 'Martin Admin', targetLabel: '', createdAt: new Date(Date.now() - 5 * 60000).toISOString() },
+        { action: 'CREATE_EXAM', actorName: 'Martin Admin', targetLabel: 'UAS Bahasa Inggris', createdAt: new Date(Date.now() - 30 * 60000).toISOString() },
+        { action: 'IMPORT_QUESTIONS', actorName: 'Bu Retno Lestari, S.Si.', targetLabel: 'Bank Soal Kimia Industri', createdAt: new Date(Date.now() - 75 * 60000).toISOString() },
+        { action: 'TOGGLE_SESSION', actorName: 'Martin Admin', targetLabel: 'SESS-8291', createdAt: new Date(Date.now() - 110 * 60000).toISOString() },
+        { action: 'CREATE_ROOM', actorName: 'Martin Admin', targetLabel: 'RUANG-05', createdAt: new Date(Date.now() - 150 * 60000).toISOString() }
+      ],
+      proctoringStudents: [
+        { name: 'Budi Santoso', exam: 'Kimia Analisis', screenStatus: 'Fokus Aktif', warningCount: 0, isLocked: false, isOnline: true },
+        { name: 'Siti Aminah', exam: 'Fisika Mekanika', screenStatus: 'Fokus Aktif', warningCount: 0, isLocked: false, isOnline: true },
+        { name: 'Andi Wijaya', exam: 'Sastra Indonesia', screenStatus: 'Keluar Layar (1)', warningCount: 1, isLocked: false, isOnline: true },
+        { name: 'Rian Hidayat', exam: 'Biologi Sel', screenStatus: 'Layar Terkunci', warningCount: 3, isLocked: true, isOnline: false }
+      ],
+      filters: {
+        guru: { search: '' },
+        siswa: { search: '', grade: '', major: '', year: '' },
+        ujian: { search: '', subject: '', teacher: '' },
+        mapel: { search: '', subject: '', page: 1, limit: 5 },
+        proktor: { search: '', room: '' }
+      },
+      currentEditingItem: null,
+      tempExcelImportData: null
+    };
+
+    // System configuration state
+    let configState = {
+      syncInterval: 30,
+      maxOut: 3,
+      heartbeat: true
+    };
+
+    // Initialize sidebar navigation
+    function renderSidebar() {
+      const navContainer = document.getElementById('sidebar-nav');
+      navContainer.innerHTML = '';
+
+      let currentHeading = null;
+      
+      MENU_ITEMS.forEach(item => {
+        if (item.type === 'heading') {
+          const heading = document.createElement('div');
+          heading.className = 'text-[9px] uppercase font-bold tracking-widest text-slate-500 px-3 mb-2 pt-2';
+          heading.textContent = item.label;
+          navContainer.appendChild(heading);
+        } else {
+          const link = document.createElement('button');
+          link.className = `w-full flex items-center gap-3 px-3 py-3 rounded-2xl text-slate-400 hover:bg-white/5 hover:text-white transition-all text-left font-medium text-xs ${state.activeTab === item.id ? 'clay-menu-active text-white' : ''}`;
+          link.innerHTML = `
+            <span class="material-icons menu-icon text-lg">${item.icon}</span>
+            <span class="font-semibold">${item.label}</span>
+          `;
+          link.onclick = () => switchTab(item.id);
+          navContainer.appendChild(link);
+        }
+      });
+    }
+
+    // Tab switcher
+    function switchTab(tabId) {
+      state.activeTab = tabId;
+      renderSidebar();
+      
+      // Update top bar title
+      const matched = MENU_ITEMS.find(item => item.id === tabId);
+      document.getElementById('current-tab-title').textContent = matched ? matched.label : 'Dashboard';
+
+      renderTabContent();
+    }
+
+    // Render corresponding Tab View content
+    function renderTabContent() {
+      const area = document.getElementById('main-content-area');
+      area.innerHTML = '';
+
+      switch(state.activeTab) {
+        case 'overview':
+          renderOverview(area);
+          break;
+        case 'guru':
+          renderGuruTab(area);
+          break;
+        case 'siswa':
+          renderSiswaTab(area);
+          break;
+        case 'ujian':
+          renderUjianTab(area);
+          break;
+        case 'mapel':
+          renderMapelTab(area);
+          break;
+        case 'kelas':
+          renderKelasTab(area);
+          break;
+        case 'proktor':
+          renderProktorTab(area);
+          break;
+        case 'ruangan':
+          renderRuanganTab(area);
+          break;
+        case 'token-sesi':
+          renderTokenSesiTab(area);
+          break;
+      }
+    }
+
+    // ── HELPERS ──
+    
+    // Status badges renderer helper
+    function statusPill(status) {
+      const s = String(status).toLowerCase();
+      if (s === 'aktif' || s === 'active') {
+        return `<span class="clay-badge clay-badge-aktif"><span class="w-1 h-1 rounded-full bg-emerald-400 animate-pulse"></span>Aktif</span>`;
+      } else if (s === 'draft') {
+        return `<span class="clay-badge clay-badge-draft"><span class="w-1 h-1 rounded-full bg-amber-400"></span>Draft</span>`;
+      } else {
+        return `<span class="clay-badge clay-badge-nonaktif"><span class="w-1 h-1 rounded-full bg-slate-400"></span>Nonaktif</span>`;
+      }
+    }
+
+    // Relative time calculations
+    function relativeTime(dateStr) {
+      const diff = Date.now() - new Date(dateStr).getTime();
+      const m = Math.floor(diff / 60000);
+      if (m < 1)  return 'Baru saja';
+      if (m < 60) return `${m} menit lalu`;
+      const h = Math.floor(m / 60);
+      if (h < 24) return `${h} jam lalu`;
+      const d = Math.floor(h / 24);
+      return `${d} hari lalu`;
+    }
+
+    // Action icon helper
+    function getActivityMeta(action) {
+      const act = String(action).toUpperCase();
+      if (act.includes('IMPORT') || act.startsWith('CREATE')) {
+        return { icon: 'add_circle', color: 'text-emerald-400', bg: 'rgba(16,185,129,0.15)', label: 'Buat' };
+      } else if (act.startsWith('UPDATE') || act.includes('EDIT') || act === 'TOGGLE_SESSION' || act.includes('RESET_EXAM_TOKEN')) {
+        return { icon: 'edit', color: 'text-amber-400', bg: 'rgba(245,159,11,0.15)', label: 'Ubah' };
+      } else if (act.startsWith('DELETE') || act.includes('RESET') || act === 'LOGOUT') {
+        return { icon: 'delete', color: 'text-red-500', bg: 'rgba(239,68,68,0.15)', label: 'Hapus' };
+      } else if (act === 'LOGIN') {
+        return { icon: 'login', color: 'text-emerald-400', bg: 'rgba(16,185,129,0.15)', label: 'Masuk' };
+      }
+      return { icon: 'info', color: 'text-slate-400', bg: 'rgba(148,163,184,0.15)', label: 'Info' };
+    }
+
+    // Format action descriptions
+    function formatActivityDescription(log) {
+      const actor = log.actorName || 'Sistem';
+      const target = log.targetLabel || '';
+      switch (log.action) {
+        case 'LOGIN':
+          return `<span class="font-bold text-white">${actor}</span> masuk ke sistem`;
+        case 'LOGOUT':
+          return `<span class="font-bold text-white">${actor}</span> keluar dari sistem`;
+        case 'IMPORT_QUESTIONS':
+          return `<span class="font-bold text-white">${actor}</span> baru saja mengimpor soal <span class="text-amber-400 font-semibold">${target}</span>`;
+        case 'CREATE_EXAM':
+          return `<span class="font-bold text-white">${actor}</span> membuat ujian <span class="text-amber-400 font-semibold">${target}</span>`;
+        case 'UPDATE_EXAM':
+          return `<span class="font-bold text-white">${actor}</span> memperbarui ujian <span class="text-amber-400 font-semibold">${target}</span>`;
+        case 'DELETE_EXAM':
+          return `<span class="font-bold text-white">${actor}</span> menghapus ujian <span class="text-amber-400 font-semibold">${target}</span>`;
+        case 'ACTIVATE_EXAM':
+          return `<span class="font-bold text-white">${actor}</span> mengaktifkan ujian <span class="text-amber-400 font-semibold">${target}</span>`;
+        case 'COMPLETE_EXAM':
+          return `<span class="font-bold text-white">${actor}</span> menyelesaikan ujian <span class="text-amber-400 font-semibold">${target}</span>`;
+        case 'RESET_EXAM_TOKEN':
+          return `<span class="font-bold text-white">${actor}</span> me-reset token ujian <span class="text-amber-400 font-semibold">${target}</span>`;
+        case 'CREATE_USER':
+          return `<span class="font-bold text-white">${actor}</span> membuat pengguna <span class="text-amber-400 font-semibold">${target}</span>`;
+        case 'UPDATE_USER':
+          return `<span class="font-bold text-white">${actor}</span> memperbarui pengguna <span class="text-amber-400 font-semibold">${target}</span>`;
+        case 'DELETE_USER':
+          return `<span class="font-bold text-white">${actor}</span> menghapus pengguna <span class="text-amber-400 font-semibold">${target}</span>`;
+        case 'CREATE_CLASS':
+          return `<span class="font-bold text-white">${actor}</span> membuat kelas <span class="text-amber-400 font-semibold">${target}</span>`;
+        case 'UPDATE_CLASS':
+          return `<span class="font-bold text-white">${actor}</span> memperbarui kelas <span class="text-amber-400 font-semibold">${target}</span>`;
+        case 'DELETE_CLASS':
+          return `<span class="font-bold text-white">${actor}</span> menghapus kelas <span class="text-amber-400 font-semibold">${target}</span>`;
+        case 'CREATE_BANK':
+          return `<span class="font-bold text-white">${actor}</span> membuat bank soal <span class="text-amber-400 font-semibold">${target}</span>`;
+        case 'UPDATE_BANK':
+          return `<span class="font-bold text-white">${actor}</span> memperbarui bank soal <span class="text-amber-400 font-semibold">${target}</span>`;
+        case 'DELETE_BANK':
+          return `<span class="font-bold text-white">${actor}</span> menghapus bank soal <span class="text-amber-400 font-semibold">${target}</span>`;
+        case 'CREATE_SESSION':
+          return `<span class="font-bold text-white">${actor}</span> membuat token sesi <span class="text-amber-400 font-semibold">${target}</span>`;
+        case 'TOGGLE_SESSION':
+          return `<span class="font-bold text-white">${actor}</span> mengubah status sesi <span class="text-amber-400 font-semibold">${target}</span>`;
+        case 'CREATE_ROOM':
+          return `<span class="font-bold text-white">${actor}</span> membuat ruangan <span class="text-amber-400 font-semibold">${target}</span>`;
+        case 'UPDATE_ROOM':
+          return `<span class="font-bold text-white">${actor}</span> memperbarui ruangan <span class="text-amber-400 font-semibold">${target}</span>`;
+        case 'DELETE_ROOM':
+          return `<span class="font-bold text-white">${actor}</span> menghapus ruangan <span class="text-amber-400 font-semibold">${target}</span>`;
+        case 'RESET_STUDENT_SESSION':
+          return `<span class="font-bold text-white">${actor}</span> me-reset sesi ujian <span class="text-amber-400 font-semibold">${target}</span>`;
+        default:
+          return `<span class="font-bold text-white">${actor}</span> melakukan aksi ${log.action} ${target ? `pada <span class="text-amber-400 font-semibold">${target}</span>` : ''}`;
+      }
+    }
+
+    // ── TOAST MESSAGES SYSTEM ──
+    function showToast(message, type = 'success') {
+      const container = document.getElementById('toast-container');
+      const toast = document.createElement('div');
+      
+      const colors = {
+        success: 'from-emerald-600 to-emerald-800 text-white shadow-[0_4px_12px_rgba(16,185,129,0.3)] border-emerald-500/20',
+        error: 'from-red-600 to-red-800 text-white shadow-[0_4px_12px_rgba(239,68,68,0.3)] border-red-500/20',
+        info: 'from-blue-600 to-blue-800 text-white shadow-[0_4px_12px_rgba(59,130,246,0.3)] border-blue-500/20',
+        warning: 'from-amber-600 to-amber-800 text-white shadow-[0_4px_12px_rgba(245,159,11,0.3)] border-amber-500/20'
+      };
+
+      const icons = {
+        success: 'check_circle',
+        error: 'error',
+        info: 'info',
+        warning: 'warning'
+      };
+
+      toast.className = `flex items-center gap-3 px-4 py-3.5 rounded-2xl bg-gradient-to-r ${colors[type]} border text-xs font-bold uppercase tracking-wider shadow-lg transform transition-all duration-300 translate-y-10 opacity-0`;
+      toast.innerHTML = `
+        <span class="material-icons">${icons[type]}</span>
+        <span>${message}</span>
+      `;
+      
+      container.appendChild(toast);
+      
+      // Animate entry
+      setTimeout(() => {
+        toast.classList.remove('translate-y-10', 'opacity-0');
+      }, 50);
+
+      // Animate exit
+      setTimeout(() => {
+        toast.classList.add('translate-y-[-10px]', 'opacity-0');
+        setTimeout(() => toast.remove(), 300);
+      }, 3500);
+    }
+
+    // Log Activity Helper
+    function addActivityLog(action, targetLabel) {
+      const log = {
+        action,
+        actorName: 'Martin Admin',
+        targetLabel,
+        createdAt: new Date().toISOString()
+      };
+      state.activityLogs.unshift(log);
+      renderRightSidebarActivities();
+      // If we are currently looking at Overview, re-render it
+      if (state.activeTab === 'overview') {
+        renderTabContent();
+      }
+    }
+
+    // ── TAB VIEW: OVERVIEW ──
+    function renderOverview(container) {
+      // Header Section
+      container.innerHTML = `
+        <div class="flex flex-wrap items-start justify-between gap-4 mb-8">
+          <div>
+            <h1 class="font-barlow font-black text-3xl text-white uppercase tracking-wider">OVERVIEW SEKOLAH</h1>
+            <p class="text-xs text-slate-400 mt-1">Selamat datang kembali, Martin Admin</p>
+          </div>
+        </div>
+      `;
+
+      // Stat cards grid
+      const grid = document.createElement('div');
+      grid.className = 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8';
+      
+      const stats = [
+        { label: 'Total Guru', value: state.teachers.length, icon: 'school', color: 'clay-panel-warning', trend: 'NIP Terverifikasi: ' + state.teachers.filter(t => t.verified).length },
+        { label: 'Total Siswa', value: state.students.length, icon: 'groups', color: 'clay-panel-info', trend: 'Pembagian Ruangan Selesai' },
+        { label: 'Total Ujian', value: state.exams.length, icon: 'fact_check', color: 'clay-panel-success', trend: 'Bank Soal Terintegrasi' },
+        { label: 'Ujian Aktif', value: state.exams.filter(e => e.status === 'active').length, icon: 'play_circle', color: 'clay-panel-primary', trend: 'Sinkronisasi Live WS' }
+      ];
+
+      stats.forEach(st => {
+        grid.innerHTML += `
+          <div class="${st.color} p-5 flex flex-col justify-between h-36 hover:scale-[1.03] transition-all duration-300">
+            <div class="flex items-start justify-between">
+              <div>
+                <p class="text-[10px] font-bold uppercase tracking-widest text-white/70">${st.label}</p>
+                <h3 class="text-3xl font-black text-white mt-1.5 font-barlow tracking-wider">${st.value}</h3>
+              </div>
+              <div class="p-2 rounded-2xl bg-black/15 text-white border border-white/10 shadow-inner">
+                <span class="material-icons text-xl">${st.icon}</span>
+              </div>
+            </div>
+            <div class="flex items-center gap-1.5 text-[9px] text-white/75 font-semibold mt-4">
+              <span class="w-1.5 h-1.5 rounded-full bg-white animate-pulse"></span>
+              <span>${st.trend}</span>
+            </div>
+          </div>
+        `;
+      });
+      container.appendChild(grid);
+
+      // Two-column layout: activity (left) + quick actions (right)
+      const twoCol = document.createElement('div');
+      twoCol.className = 'grid grid-cols-1 lg:grid-cols-3 gap-6';
+      
+      // Left Column: Activity log panel
+      const actPanel = document.createElement('div');
+      actPanel.className = 'lg:col-span-2 clay-panel p-6 flex flex-col justify-between min-h-[350px]';
+      actPanel.innerHTML = `
+        <div>
+          <div class="flex items-center justify-between pb-4 border-b border-white/5">
+            <div class="flex items-center gap-2">
+              <span class="material-icons text-slate-400">history</span>
+              <span class="font-bold text-xs uppercase tracking-wider text-white">Aktivitas Terbaru Admin</span>
+            </div>
+            <div class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" title="Live"></div>
+          </div>
+          <div id="activity-feed-overview" class="flex flex-col mt-4 divide-y divide-white/5">
+            <!-- Loaded by JS below -->
+          </div>
+        </div>
+        <div class="mt-4 pt-3 border-t border-white/5 flex justify-end">
+          <button onclick="openAllActivitiesModal()" class="clay-btn clay-btn-secondary px-4 py-2 text-xs">
+            Lihat Semua Log
+          </button>
+        </div>
+      `;
+      twoCol.appendChild(actPanel);
+
+      // Right Column: Quick Actions + System Health
+      const rightCol = document.createElement('div');
+      rightCol.className = 'flex flex-col gap-6';
+      
+      // Quick actions panel
+      const quickPanel = document.createElement('div');
+      quickPanel.className = 'clay-panel p-5';
+      quickPanel.innerHTML = `
+        <div class="flex items-center gap-2 mb-4 pb-3 border-b border-white/5">
+          <span class="material-icons text-slate-400 text-base">bolt</span>
+          <span class="font-bold text-xs uppercase tracking-wider text-white">Aksi Cepat</span>
+        </div>
+      `;
+      const qaGrid = document.createElement('div');
+      qaGrid.className = 'grid grid-cols-2 gap-2.5';
+      const quickActions = [
+        { icon: 'person_add', label: 'Tambah Guru', onClick: () => openFormModal('guru') },
+        { icon: 'group_add', label: 'Tambah Siswa', onClick: () => openFormModal('siswa') },
+        { icon: 'add_box', label: 'Buat Ujian', onClick: () => openFormModal('ujian') },
+        { icon: 'key', label: 'Token Sesi', onClick: () => openFormModal('token-sesi') },
+        { icon: 'menu_book', label: 'Bank Soal', onClick: () => openFormModal('mapel') },
+        { icon: 'meeting_room', label: 'Ruangan', onClick: () => openFormModal('ruangan') },
+      ];
+      quickActions.forEach(qa => {
+        const btn = document.createElement('button');
+        btn.className = 'flex items-center gap-2 px-3 py-3 rounded-2xl text-left text-[11px] text-slate-300 hover:text-white bg-[#10121d] hover:bg-[#161925] border border-white/5 hover:border-white/10 transition-all font-semibold shadow-[inset_1px_1px_2px_rgba(255,255,255,0.02),inset_-1px_-1px_2px_rgba(0,0,0,0.3)] active:scale-95';
+        btn.innerHTML = `<span class="material-icons text-slate-500 text-xs">${qa.icon}</span><span class="truncate">${qa.label}</span>`;
+        btn.onclick = qa.onClick;
+        qaGrid.appendChild(btn);
+      });
+      quickPanel.appendChild(qaGrid);
+      rightCol.appendChild(quickPanel);
+
+      // System Health panel
+      const healthPanel = document.createElement('div');
+      healthPanel.className = 'clay-panel p-5 flex flex-col justify-between';
+      healthPanel.innerHTML = `
+        <div>
+          <div class="flex items-center justify-between pb-3 border-b border-white/5 mb-4">
+            <h3 class="text-xs font-bold uppercase tracking-wider text-white">Status Utama Sistem</h3>
+            <span class="clay-badge clay-badge-aktif"><span class="w-1 h-1 rounded-full bg-emerald-400"></span>Normal</span>
+          </div>
+          
+          <div class="space-y-4 text-xs">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                <span class="font-bold text-slate-300">Server CPU Load</span>
+              </div>
+              <span class="font-mono text-slate-400 font-bold" id="cpu-health-text">24%</span>
+            </div>
+            <div class="w-full bg-[#0d0e15] rounded-full h-1.5 overflow-hidden shadow-[inset_1px_1px_2px_rgba(0,0,0,0.5)]">
+              <div class="bg-emerald-500 h-full rounded-full transition-all duration-1000" id="cpu-health-bar" style="width: 24%"></div>
+            </div>
+
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                <span class="font-bold text-slate-300">Database Latency</span>
+              </div>
+              <span class="font-mono text-slate-400 font-bold" id="db-health-text">12ms</span>
+            </div>
+            <div class="w-full bg-[#0d0e15] rounded-full h-1.5 overflow-hidden shadow-[inset_1px_1px_2px_rgba(0,0,0,0.5)]">
+              <div class="bg-emerald-500 h-full rounded-full transition-all duration-1000" id="db-health-bar" style="width: 12%"></div>
+            </div>
+
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                <span class="font-bold text-slate-300">Proctoring WS Connections</span>
+              </div>
+              <span class="font-mono text-slate-400 font-bold">14 Active</span>
+            </div>
+          </div>
+        </div>
+        
+        <div class="mt-4 pt-3 border-t border-white/5 flex items-center justify-between text-[9px] text-slate-500 font-semibold">
+          <span>Uptime: 14 Hari, 2 Jam</span>
+          <span class="text-red-500 hover:text-red-400 cursor-pointer" onclick="refreshHealthStats()">Diagnostics</span>
+        </div>
+      `;
+      rightCol.appendChild(healthPanel);
+
+      twoCol.appendChild(rightCol);
+      container.appendChild(twoCol);
+
+      // Render items inside timeline feed in overview
+      const feed = document.getElementById('activity-feed-overview');
+      const slice = state.activityLogs.slice(0, 4);
+      if (slice.length === 0) {
+        feed.innerHTML = `
+          <div class="py-6 text-center">
+            <span class="material-icons text-slate-500 text-2xl mb-1">inbox</span>
+            <p class="text-xs text-slate-500">Belum ada aktivitas tercatat.</p>
+          </div>
+        `;
+      } else {
+        slice.forEach((log, idx) => {
+          const meta = getActivityMeta(log.action);
+          const item = document.createElement('div');
+          item.className = 'flex items-start gap-3.5 py-3.5';
+          item.innerHTML = `
+            <div class="w-8 h-8 rounded-2xl flex items-center justify-center shrink-0 mt-0.5 border border-white/5 shadow-[inset_1px_1px_2px_rgba(255,255,255,0.05),inset_-1px_-1px_2px_rgba(0,0,0,0.3)]" style="background-color: ${meta.bg}; color: ${meta.color}">
+              <span class="material-icons text-xs">${meta.icon}</span>
+            </div>
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center justify-between gap-2">
+                <span class="text-[11px] font-bold text-slate-300">${meta.label} data</span>
+                <span class="text-[10px] text-slate-500 font-medium">${relativeTime(log.createdAt)}</span>
+              </div>
+              <div class="text-[11px] text-slate-400 mt-1 leading-normal">
+                ${formatActivityDescription(log)}
+              </div>
+            </div>
+          `;
+          feed.appendChild(item);
+        });
+      }
+    }
+
+    function refreshHealthStats() {
+      const cpu = Math.floor(Math.random() * 40) + 10;
+      const db = Math.floor(Math.random() * 20) + 5;
+      
+      const txtCpu = document.getElementById('cpu-health-text');
+      const barCpu = document.getElementById('cpu-health-bar');
+      const txtDb = document.getElementById('db-health-text');
+      const barDb = document.getElementById('db-health-bar');
+
+      if (txtCpu) txtCpu.textContent = `${cpu}%`;
+      if (barCpu) barCpu.style.width = `${cpu}%`;
+      if (txtDb) txtDb.textContent = `${db}ms`;
+      if (barDb) barDb.style.width = `${db * 4}%`; // scale visual
+      
+      showToast('Status server berhasil diperbarui', 'info');
+    }
+
+    // ── TAB VIEW: KELOLA GURU ──
+    function renderGuruTab(container) {
+      container.innerHTML = `
+        <div class="flex flex-wrap items-center justify-between gap-4 mb-6">
+          <div>
+            <h1 class="font-barlow font-black text-2xl text-white uppercase tracking-wider">KELOLA AKUN GURU</h1>
+            <p class="text-xs text-slate-400 mt-1">Tambah, edit, dan verifikasi akun pengajar mata pelajaran.</p>
+          </div>
+          <button onclick="openFormModal('guru')" class="clay-btn clay-btn-primary px-5 py-3 shadow-[0_3px_10px_rgba(239,68,68,0.3)]">
+            <span class="material-icons text-sm">add_circle</span>
+            Tambah Guru
+          </button>
+        </div>
+
+        <!-- Filter Bar -->
+        <div class="clay-panel p-4 flex flex-col md:flex-row gap-4 items-center mb-6">
+          <div class="relative flex-1 w-full">
+            <span class="material-icons absolute left-3.5 top-3.5 text-slate-500 text-sm">search</span>
+            <input id="guru-search" type="text" placeholder="Cari nama guru atau NIP..." value="${state.filters.guru.search}" 
+              class="w-full pl-9 pr-4 py-3 clay-input text-xs" oninput="state.filters.guru.search = this.value; renderGuruTable();">
+          </div>
+          <button onclick="resetGuruFilters()" class="w-full md:w-auto clay-btn clay-btn-secondary px-5 py-3">
+            <span class="material-icons text-sm">restart_alt</span>
+            Reset
+          </button>
+        </div>
+
+        <!-- Table Container -->
+        <div class="clay-panel overflow-hidden">
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr class="border-b border-white/5 bg-black/20 text-[10px] uppercase font-bold tracking-wider text-slate-400">
+                  <th class="p-4 pl-6">Nama Guru</th>
+                  <th class="p-4">NIP / NISN</th>
+                  <th class="p-4">Status</th>
+                  <th class="p-4 text-center">Aksi</th>
+                </tr>
+              </thead>
+              <tbody id="guru-table-body" class="divide-y divide-white/5">
+                <!-- Loaded Dynamically -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      `;
+      renderGuruTable();
+    }
+
+    function renderGuruTable() {
+      const body = document.getElementById('guru-table-body');
+      if (!body) return;
+      body.innerHTML = '';
+      
+      const search = state.filters.guru.search.toLowerCase();
+      const filtered = state.teachers.filter(t => 
+        t.name.toLowerCase().includes(search) || 
+        t.nisn.includes(search)
+      );
+
+      if (filtered.length === 0) {
+        body.innerHTML = `
+          <tr>
+            <td colspan="4" class="p-8 text-center text-slate-500 font-semibold">
+              Tidak ada data guru yang cocok dengan pencarian.
+            </td>
+          </tr>
+        `;
+        return;
+      }
+
+      filtered.forEach(t => {
+        const tr = document.createElement('tr');
+        tr.className = 'clay-table-row transition-colors';
+        tr.innerHTML = `
+          <td class="p-4 pl-6 font-bold text-white">${t.name}</td>
+          <td class="p-4 font-mono text-slate-300 font-semibold">${t.nisn}</td>
+          <td class="p-4">${statusPill(t.verified ? 'aktif' : 'nonaktif')}</td>
+          <td class="p-4 text-center">
+            <div class="flex items-center justify-center gap-3">
+              <button onclick="openFormModal('guru', ${t.id})" class="p-1 text-slate-400 hover:text-amber-500 transition-colors" title="Edit">
+                <span class="material-icons text-lg">edit</span>
+              </button>
+              <button onclick="deleteItem('teachers', ${t.id}, '${t.name}')" class="p-1 text-slate-400 hover:text-red-500 transition-colors" title="Hapus">
+                <span class="material-icons text-lg">delete</span>
+              </button>
+            </div>
+          </td>
+        `;
+        body.appendChild(tr);
+      });
+    }
+
+    function resetGuruFilters() {
+      document.getElementById('guru-search').value = '';
+      state.filters.guru.search = '';
+      renderGuruTable();
+      showToast('Filter pencarian direset', 'info');
+    }
+
+    // ── TAB VIEW: KELOLA SISWA ──
+    function renderSiswaTab(container) {
+      container.innerHTML = `
+        <div class="flex flex-wrap items-center justify-between gap-4 mb-6">
+          <div>
+            <h1 class="font-barlow font-black text-2xl text-white uppercase tracking-wider">KELOLA DATA SISWA</h1>
+            <p class="text-xs text-slate-400 mt-1">Tambah, edit, dan import data siswa dari file excel template.</p>
+          </div>
+          <div class="flex gap-2">
+            <button onclick="openImportModal()" class="clay-btn clay-btn-secondary px-5 py-3">
+              <span class="material-icons text-sm text-emerald-400">upload_file</span>
+              Import Excel
+            </button>
+            <button onclick="openFormModal('siswa')" class="clay-btn clay-btn-primary px-5 py-3 shadow-[0_3px_10px_rgba(239,68,68,0.3)]">
+              <span class="material-icons text-sm">add_circle</span>
+              Tambah Siswa
+            </button>
+          </div>
+        </div>
+
+        <!-- Filter Bar -->
+        <div class="clay-panel p-4 flex flex-col md:flex-row gap-4 items-center mb-6">
+          <div class="relative flex-1 w-full">
+            <span class="material-icons absolute left-3.5 top-3.5 text-slate-500 text-sm">search</span>
+            <input id="siswa-search" type="text" placeholder="Cari nama siswa atau NISN..." value="${state.filters.siswa.search}" 
+              class="w-full pl-9 pr-4 py-3 clay-input text-xs" oninput="state.filters.siswa.search = this.value; renderSiswaTable();">
+          </div>
+          
+          <div class="w-full md:w-36">
+            <select id="siswa-grade" class="w-full clay-input text-xs cursor-pointer" onchange="state.filters.siswa.grade = this.value; renderSiswaTable();">
+              <option value="">Semua Tingkat</option>
+              <option value="X" ${state.filters.siswa.grade === 'X' ? 'selected' : ''}>Kelas X</option>
+              <option value="XI" ${state.filters.siswa.grade === 'XI' ? 'selected' : ''}>Kelas XI</option>
+              <option value="XII" ${state.filters.siswa.grade === 'XII' ? 'selected' : ''}>Kelas XII</option>
+            </select>
+          </div>
+
+          <div class="w-full md:w-36">
+            <select id="siswa-major" class="w-full clay-input text-xs cursor-pointer" onchange="state.filters.siswa.major = this.value; renderSiswaTable();">
+              <option value="">Semua Jurusan</option>
+              ${JURUSAN_LIST.map(j => `<option value="${j}" ${state.filters.siswa.major === j ? 'selected' : ''}>${j}</option>`).join('')}
+            </select>
+          </div>
+
+          <button onclick="resetSiswaFilters()" class="w-full md:w-auto clay-btn clay-btn-secondary px-5 py-3">
+            <span class="material-icons text-sm">restart_alt</span>
+            Reset
+          </button>
+        </div>
+
+        <!-- Table Container -->
+        <div class="clay-panel overflow-hidden">
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr class="border-b border-white/5 bg-black/20 text-[10px] uppercase font-bold tracking-wider text-slate-400">
+                  <th class="p-4 pl-6">Nama Siswa</th>
+                  <th class="p-4">NISN</th>
+                  <th class="p-4">Kelas</th>
+                  <th class="p-4">Ruang Tugas</th>
+                  <th class="p-4">Tahun Ajaran</th>
+                  <th class="p-4 text-center">Aksi</th>
+                </tr>
+              </thead>
+              <tbody id="siswa-table-body" class="divide-y divide-white/5">
+                <!-- Loaded Dynamically -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      `;
+      renderSiswaTable();
+    }
+
+    function renderSiswaTable() {
+      const body = document.getElementById('siswa-table-body');
+      if (!body) return;
+      body.innerHTML = '';
+
+      const search = state.filters.siswa.search.toLowerCase();
+      const grade = state.filters.siswa.grade;
+      const major = state.filters.siswa.major;
+
+      const filtered = state.students.filter(s => {
+        const matchesSearch = s.name.toLowerCase().includes(search) || s.nisn.includes(search);
+        
+        // Extract grade from class name (e.g. "XII RPL" -> "XII")
+        let sGrade = '';
+        if (s.class.startsWith('XII')) sGrade = 'XII';
+        else if (s.class.startsWith('XI')) sGrade = 'XI';
+        else if (s.class.startsWith('X')) sGrade = 'X';
+        
+        const matchesGrade = !grade || sGrade === grade;
+        
+        // Check if class contains the major code
+        const matchesMajor = !major || s.class.includes(major);
+
+        return matchesSearch && matchesGrade && matchesMajor;
+      });
+
+      if (filtered.length === 0) {
+        body.innerHTML = `
+          <tr>
+            <td colspan="6" class="p-8 text-center text-slate-500 font-semibold">
+              Tidak ada data siswa yang cocok dengan kriteria filter.
+            </td>
+          </tr>
+        `;
+        return;
+      }
+
+      filtered.forEach(s => {
+        const tr = document.createElement('tr');
+        tr.className = 'clay-table-row transition-colors';
+        tr.innerHTML = `
+          <td class="p-4 pl-6 font-bold text-white">${s.name}</td>
+          <td class="p-4 font-mono text-slate-300 font-semibold">${s.nisn}</td>
+          <td class="p-4 text-slate-300 font-semibold">${s.class}</td>
+          <td class="p-4 font-mono text-amber-500 font-bold">${s.room || '-'}</td>
+          <td class="p-4 text-slate-400 font-semibold">${s.academicYear || s.year}</td>
+          <td class="p-4 text-center">
+            <div class="flex items-center justify-center gap-3">
+              <button onclick="openFormModal('siswa', ${s.id})" class="p-1 text-slate-400 hover:text-amber-500 transition-colors" title="Edit">
+                <span class="material-icons text-lg">edit</span>
+              </button>
+              <button onclick="deleteItem('students', ${s.id}, '${s.name}')" class="p-1 text-slate-400 hover:text-red-500 transition-colors" title="Hapus">
+                <span class="material-icons text-lg">delete</span>
+              </button>
+            </div>
+          </td>
+        `;
+        body.appendChild(tr);
+      });
+    }
+
+    function resetSiswaFilters() {
+      document.getElementById('siswa-search').value = '';
+      document.getElementById('siswa-grade').value = '';
+      document.getElementById('siswa-major').value = '';
+      state.filters.siswa.search = '';
+      state.filters.siswa.grade = '';
+      state.filters.siswa.major = '';
+      renderSiswaTable();
+      showToast('Semua filter siswa direset', 'info');
+    }
+
+    // ── TAB VIEW: KELOLA UJIAN ──
+    function renderUjianTab(container) {
+      container.innerHTML = `
+        <div class="flex flex-wrap items-center justify-between gap-4 mb-6">
+          <div>
+            <h1 class="font-barlow font-black text-2xl text-white uppercase tracking-wider">KELOLA UJIAN SEKOLAH</h1>
+            <p class="text-xs text-slate-400 mt-1">Buat jadwal ujian baru, pantau status keaktifan, dan kelola token ujian.</p>
+          </div>
+          <button onclick="openFormModal('ujian')" class="clay-btn clay-btn-primary px-5 py-3 shadow-[0_3px_10px_rgba(239,68,68,0.3)]">
+            <span class="material-icons text-sm">add_circle</span>
+            Buat Ujian baru
+          </button>
+        </div>
+
+        <!-- Filter Bar -->
+        <div class="clay-panel p-4 flex flex-col md:flex-row gap-4 items-center mb-6">
+          <div class="relative flex-1 w-full">
+            <span class="material-icons absolute left-3.5 top-3.5 text-slate-500 text-sm">search</span>
+            <input id="ujian-search" type="text" placeholder="Cari nama ujian..." value="${state.filters.ujian.search}" 
+              class="w-full pl-9 pr-4 py-3 clay-input text-xs" oninput="state.filters.ujian.search = this.value; renderUjianTable();">
+          </div>
+          
+          <div class="w-full md:w-48">
+            <select id="ujian-subject" class="w-full clay-input text-xs cursor-pointer" onchange="state.filters.ujian.subject = this.value; renderUjianTable();">
+              <option value="">Semua Mapel</option>
+              ${[...new Set(state.exams.map(e => e.subject))].map(sub => `<option value="${sub}" ${state.filters.ujian.subject === sub ? 'selected' : ''}>${sub}</option>`).join('')}
+            </select>
+          </div>
+
+          <button onclick="resetUjianFilters()" class="w-full md:w-auto clay-btn clay-btn-secondary px-5 py-3">
+            <span class="material-icons text-sm">restart_alt</span>
+            Reset
+          </button>
+        </div>
+
+        <!-- Table Container -->
+        <div class="clay-panel overflow-hidden">
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr class="border-b border-white/5 bg-black/20 text-[10px] uppercase font-bold tracking-wider text-slate-400">
+                  <th class="p-4 pl-6">Nama Ujian</th>
+                  <th class="p-4">Mapel</th>
+                  <th class="p-4">Guru Pengampu</th>
+                  <th class="p-4">Token</th>
+                  <th class="p-4">Status</th>
+                  <th class="p-4 text-center">Aksi</th>
+                </tr>
+              </thead>
+              <tbody id="ujian-table-body" class="divide-y divide-white/5">
+                <!-- Loaded Dynamically -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      `;
+      renderUjianTable();
+    }
+
+    function renderUjianTable() {
+      const body = document.getElementById('ujian-table-body');
+      if (!body) return;
+      body.innerHTML = '';
+
+      const search = state.filters.ujian.search.toLowerCase();
+      const subject = state.filters.ujian.subject;
+
+      const filtered = state.exams.filter(e => {
+        const matchesSearch = e.title.toLowerCase().includes(search);
+        const matchesSubject = !subject || e.subject === subject;
+        return matchesSearch && matchesSubject;
+      });
+
+      if (filtered.length === 0) {
+        body.innerHTML = `
+          <tr>
+            <td colspan="6" class="p-8 text-center text-slate-500 font-semibold">
+              Tidak ada data ujian yang ditemukan.
+            </td>
+          </tr>
+        `;
+        return;
+      }
+
+      filtered.forEach(e => {
+        const tr = document.createElement('tr');
+        tr.className = 'clay-table-row transition-colors';
+        tr.innerHTML = `
+          <td class="p-4 pl-6 font-bold text-white">${e.title}</td>
+          <td class="p-4 text-slate-300 font-semibold">${e.subject}</td>
+          <td class="p-4 text-slate-300 font-semibold">${e.teacher}</td>
+          <td class="p-4 font-mono font-bold text-amber-500 text-sm tracking-wider">${e.token}</td>
+          <td class="p-4">${statusPill(e.status)}</td>
+          <td class="p-4 text-center">
+            <div class="flex items-center justify-center gap-2">
+              <button onclick="openFormModal('ujian', ${e.id})" class="p-1 text-slate-400 hover:text-amber-500 transition-colors" title="Edit Ujian">
+                <span class="material-icons text-lg">edit</span>
+              </button>
+              ${e.status === 'draft' ? `
+                <button onclick="toggleExamStatus(${e.id}, 'active')" class="p-1 text-slate-400 hover:text-emerald-500 transition-colors" title="Aktifkan Ujian">
+                  <span class="material-icons text-lg">play_circle</span>
+                </button>
+              ` : ''}
+              ${e.status === 'active' ? `
+                <button onclick="toggleExamStatus(${e.id}, 'closed')" class="p-1 text-slate-400 hover:text-red-500 transition-colors" title="Kunci/Tutup Ujian">
+                  <span class="material-icons text-lg">lock</span>
+                </button>
+              ` : ''}
+              <button onclick="resetExamToken(${e.id})" class="p-1 text-slate-400 hover:text-white transition-colors" title="Reset Token Ujian">
+                <span class="material-icons text-lg">autorenew</span>
+              </button>
+              <button onclick="deleteItem('exams', ${e.id}, '${e.title}')" class="p-1 text-slate-400 hover:text-red-500 transition-colors" title="Hapus Ujian">
+                <span class="material-icons text-lg">delete</span>
+              </button>
+            </div>
+          </td>
+        `;
+        body.appendChild(tr);
+      });
+    }
+
+    function toggleExamStatus(id, newStatus) {
+      const exam = state.exams.find(e => e.id === id);
+      if (exam) {
+        exam.status = newStatus;
+        const actLabel = newStatus === 'active' ? 'ACTIVATE_EXAM' : 'COMPLETE_EXAM';
+        addActivityLog(actLabel, exam.title);
+        showToast(`Status Ujian "${exam.title}" berhasil diubah`, 'success');
+        renderUjianTable();
+      }
+    }
+
+    function resetExamToken(id) {
+      const exam = state.exams.find(e => e.id === id);
+      if (exam) {
+        const randToken = Math.random().toString(36).substring(2, 8).toUpperCase();
+        exam.token = randToken;
+        addActivityLog('RESET_EXAM_TOKEN', exam.title);
+        showToast(`Token baru untuk "${exam.title}": ${randToken}`, 'success');
+        renderUjianTable();
+      }
+    }
+
+    function resetUjianFilters() {
+      document.getElementById('ujian-search').value = '';
+      document.getElementById('ujian-subject').value = '';
+      state.filters.ujian.search = '';
+      state.filters.ujian.subject = '';
+      renderUjianTable();
+      showToast('Filter ujian direset', 'info');
+    }
+
+    // ── TAB VIEW: MATA PELAJARAN (BANK SOAL) ──
+    function renderMapelTab(container) {
+      container.innerHTML = `
+        <div class="flex flex-wrap items-center justify-between gap-4 mb-6">
+          <div>
+            <h1 class="font-barlow font-black text-2xl text-white uppercase tracking-wider">MATA PELAJARAN / BANK SOAL</h1>
+            <p class="text-xs text-slate-400 mt-1">Daftar bank soal per mata pelajaran yang dikelola guru kontributor.</p>
+          </div>
+          <button onclick="openFormModal('mapel')" class="clay-btn clay-btn-primary px-5 py-3 shadow-[0_3px_10px_rgba(239,68,68,0.3)]">
+            <span class="material-icons text-sm">add_circle</span>
+            Buat Bank Soal
+          </button>
+        </div>
+
+        <!-- Summary Stats Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+          <div class="clay-panel p-5 flex items-center gap-4">
+            <div class="w-12 h-12 rounded-2xl bg-blue-500/10 text-blue-400 flex items-center justify-center border border-blue-500/20 shadow-inner">
+              <span class="material-icons text-2xl">menu_book</span>
+            </div>
+            <div>
+              <p class="text-[9px] font-bold uppercase tracking-wider text-slate-500">Total Bank Soal</p>
+              <h4 class="text-2xl font-black text-white mt-0.5 font-barlow">${state.questionBanks.length}</h4>
+            </div>
+          </div>
+          <div class="clay-panel p-5 flex items-center gap-4">
+            <div class="w-12 h-12 rounded-2xl bg-amber-500/10 text-amber-500 flex items-center justify-center border border-amber-500/20 shadow-inner">
+              <span class="material-icons text-2xl">fact_check</span>
+            </div>
+            <div>
+              <p class="text-[9px] font-bold uppercase tracking-wider text-slate-500">Soal Terupload</p>
+              <h4 class="text-2xl font-black text-white mt-0.5 font-barlow">${state.questionBanks.reduce((acc, b) => acc + b.questionCount, 0).toLocaleString()}</h4>
+            </div>
+          </div>
+          <div class="clay-panel p-5 flex items-center gap-4">
+            <div class="w-12 h-12 rounded-2xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center border border-emerald-500/20 shadow-inner">
+              <span class="material-icons text-2xl">school</span>
+            </div>
+            <div>
+              <p class="text-[9px] font-bold uppercase tracking-wider text-slate-500">Guru Kontributor</p>
+              <h4 class="text-2xl font-black text-white mt-0.5 font-barlow">${[...new Set(state.questionBanks.map(b => b.creator))].length}</h4>
+            </div>
+          </div>
+        </div>
+
+        <!-- Filter Bar -->
+        <div class="clay-panel p-4 flex flex-col md:flex-row gap-4 items-center mb-6">
+          <div class="relative flex-1 w-full">
+            <span class="material-icons absolute left-3.5 top-3.5 text-slate-500 text-sm">search</span>
+            <input id="mapel-search" type="text" placeholder="Cari nama bank soal..." value="${state.filters.mapel.search}" 
+              class="w-full pl-9 pr-4 py-3 clay-input text-xs" oninput="state.filters.mapel.search = this.value; state.filters.mapel.page = 1; renderMapelTable();">
+          </div>
+          
+          <div class="w-full md:w-48">
+            <select id="mapel-subject" class="w-full clay-input text-xs cursor-pointer" onchange="state.filters.mapel.subject = this.value; state.filters.mapel.page = 1; renderMapelTable();">
+              <option value="">Semua Mapel</option>
+              ${[...new Set(state.questionBanks.map(b => b.subject))].map(sub => `<option value="${sub}" ${state.filters.mapel.subject === sub ? 'selected' : ''}>${sub}</option>`).join('')}
+            </select>
+          </div>
+
+          <button onclick="resetMapelFilters()" class="w-full md:w-auto clay-btn clay-btn-secondary px-5 py-3">
+            <span class="material-icons text-sm">restart_alt</span>
+            Reset
+          </button>
+        </div>
+
+        <!-- Table Container -->
+        <div class="clay-panel overflow-hidden">
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr class="border-b border-white/5 bg-black/20 text-[10px] uppercase font-bold tracking-wider text-slate-400">
+                  <th class="p-4 pl-6">Mata Pelajaran</th>
+                  <th class="p-4">Nama Bank Soal</th>
+                  <th class="p-4">Jumlah Soal</th>
+                  <th class="p-4">Dibuat Oleh</th>
+                  <th class="p-4 text-center">Aksi</th>
+                </tr>
+              </thead>
+              <tbody id="mapel-table-body" class="divide-y divide-white/5">
+                <!-- Loaded Dynamically -->
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Pagination Footer -->
+          <div class="p-4 border-t border-white/5 bg-black/10 flex flex-col sm:flex-row items-center justify-between gap-4" id="mapel-pagination-footer">
+            <!-- Dynamically Rendered Pagination -->
+          </div>
+        </div>
+      `;
+      renderMapelTable();
+    }
+
+    function renderMapelTable() {
+      const body = document.getElementById('mapel-table-body');
+      const footer = document.getElementById('mapel-pagination-footer');
+      if (!body || !footer) return;
+      
+      body.innerHTML = '';
+      
+      const search = state.filters.mapel.search.toLowerCase();
+      const subject = state.filters.mapel.subject;
+      const page = state.filters.mapel.page;
+      const limit = state.filters.mapel.limit;
+
+      const filtered = state.questionBanks.filter(b => {
+        const matchesSearch = b.name.toLowerCase().includes(search);
+        const matchesSubject = !subject || b.subject === subject;
+        return matchesSearch && matchesSubject;
+      });
+
+      const total = filtered.length;
+      const totalPages = Math.ceil(total / limit);
+      const start = (page - 1) * limit;
+      const paginated = filtered.slice(start, start + limit);
+
+      if (paginated.length === 0) {
+        body.innerHTML = `
+          <tr>
+            <td colspan="5" class="p-8 text-center text-slate-500 font-semibold">
+              Tidak ada bank soal yang cocok dengan kriteria.
+            </td>
+          </tr>
+        `;
+        footer.innerHTML = '';
+        return;
+      }
+
+      paginated.forEach(b => {
+        const tr = document.createElement('tr');
+        tr.className = 'clay-table-row transition-colors';
+        tr.innerHTML = `
+          <td class="p-4 pl-6 text-slate-300 font-bold">${b.subject}</td>
+          <td class="p-4 font-semibold text-white">${b.name}</td>
+          <td class="p-4 font-mono font-semibold text-slate-300">${b.questionCount} Soal</td>
+          <td class="p-4">
+            <div class="flex flex-col">
+              <span class="font-bold text-slate-200">${b.creator}</span>
+              <span class="text-[9px] text-slate-500 uppercase tracking-widest font-bold mt-0.5">${b.creatorRole}</span>
+            </div>
+          </td>
+          <td class="p-4 text-center">
+            <div class="flex items-center justify-center gap-3">
+              <button onclick="openFormModal('mapel', ${b.id})" class="p-1 text-slate-400 hover:text-amber-500 transition-colors" title="Edit">
+                <span class="material-icons text-lg">edit</span>
+              </button>
+              <button onclick="deleteItem('questionBanks', ${b.id}, '${b.name}')" class="p-1 text-slate-400 hover:text-red-500 transition-colors" title="Hapus">
+                <span class="material-icons text-lg">delete</span>
+              </button>
+            </div>
+          </td>
+        `;
+        body.appendChild(tr);
+      });
+
+      // Pagination elements
+      const startEntry = total === 0 ? 0 : start + 1;
+      const endEntry = Math.min(start + limit, total);
+      
+      footer.innerHTML = `
+        <div class="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
+          Menampilkan <span class="text-white">${startEntry}-${endEntry}</span> dari <span class="text-white">${total}</span> Bank Soal
+        </div>
+        
+        <div class="flex items-center gap-2">
+          <button onclick="changeMapelPage(${page - 1})" class="px-3 py-1.5 rounded-xl bg-[#25293c] border border-white/5 hover:bg-[#2d3248] text-slate-400 hover:text-white transition-all text-xs font-bold ${page <= 1 ? 'opacity-40 cursor-not-allowed pointer-events-none' : ''}">
+            Sebelumnya
+          </button>
+          
+          <div class="flex gap-1" id="pagination-pages">
+            <!-- Numbers populated below -->
+          </div>
+
+          <button onclick="changeMapelPage(${page + 1})" class="px-3 py-1.5 rounded-xl bg-[#25293c] border border-white/5 hover:bg-[#2d3248] text-slate-400 hover:text-white transition-all text-xs font-bold ${page >= totalPages ? 'opacity-40 cursor-not-allowed pointer-events-none' : ''}">
+            Selanjutnya
+          </button>
+        </div>
+      `;
+
+      const pagesContainer = document.getElementById('pagination-pages');
+      for (let i = 1; i <= totalPages; i++) {
+        const btn = document.createElement('button');
+        btn.className = `w-7 h-7 rounded-xl flex items-center justify-center font-bold text-xs transition-all ${i === page ? 'bg-red-500 text-white shadow-md' : 'bg-[#10121d] text-slate-400 hover:bg-white/5 hover:text-white border border-white/5'}`;
+        btn.textContent = i;
+        btn.onclick = () => changeMapelPage(i);
+        pagesContainer.appendChild(btn);
+      }
+    }
+
+    function changeMapelPage(newPage) {
+      state.filters.mapel.page = newPage;
+      renderMapelTable();
+    }
+
+    function resetMapelFilters() {
+      document.getElementById('mapel-search').value = '';
+      document.getElementById('mapel-subject').value = '';
+      state.filters.mapel.search = '';
+      state.filters.mapel.subject = '';
+      state.filters.mapel.page = 1;
+      renderMapelTable();
+      showToast('Filter bank soal direset', 'info');
+    }
+
+    // ── TAB VIEW: KELOLA KELAS ──
+    function renderKelasTab(container) {
+      container.innerHTML = `
+        <div class="flex flex-wrap items-center justify-between gap-4 mb-6">
+          <div>
+            <h1 class="font-barlow font-black text-2xl text-white uppercase tracking-wider">KELOLA ROMBONGAN BELAJAR</h1>
+            <p class="text-xs text-slate-400 mt-1">Buat rombel per angkatan kelas dan pantau jumlah peserta didiknya.</p>
+          </div>
+          <button onclick="openFormModal('kelas')" class="clay-btn clay-btn-primary px-5 py-3 shadow-[0_3px_10px_rgba(239,68,68,0.3)]">
+            <span class="material-icons text-sm">add_circle</span>
+            Tambah Kelas
+          </button>
+        </div>
+
+        <!-- Table Container -->
+        <div class="clay-panel overflow-hidden">
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr class="border-b border-white/5 bg-black/20 text-[10px] uppercase font-bold tracking-wider text-slate-400">
+                  <th class="p-4 pl-6">Tingkat</th>
+                  <th class="p-4">Nama Kelas</th>
+                  <th class="p-4">Jurusan</th>
+                  <th class="p-4">Jumlah Siswa</th>
+                  <th class="p-4 text-center">Aksi</th>
+                </tr>
+              </thead>
+              <tbody id="kelas-table-body" class="divide-y divide-white/5">
+                <!-- Loaded Dynamically -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      `;
+      renderKelasTable();
+    }
+
+    function renderKelasTable() {
+      const body = document.getElementById('kelas-table-body');
+      if (!body) return;
+      body.innerHTML = '';
+
+      if (state.classes.length === 0) {
+        body.innerHTML = `
+          <tr>
+            <td colspan="5" class="p-8 text-center text-slate-500 font-semibold">
+              Belum ada kelas yang didaftarkan.
+            </td>
+          </tr>
+        `;
+        return;
+      }
+
+      state.classes.forEach(c => {
+        const tr = document.createElement('tr');
+        tr.className = 'clay-table-row transition-colors';
+        tr.innerHTML = `
+          <td class="p-4 pl-6 text-slate-400 font-bold font-mono text-sm">${c.grade}</td>
+          <td class="p-4 font-bold text-white">${c.name}</td>
+          <td class="p-4 text-amber-500 font-bold">${c.major}</td>
+          <td class="p-4 font-semibold text-slate-300">${c.studentCount} Siswa</td>
+          <td class="p-4 text-center">
+            <div class="flex items-center justify-center gap-3">
+              <button onclick="openFormModal('kelas', ${c.id})" class="p-1 text-slate-400 hover:text-amber-500 transition-colors" title="Edit">
+                <span class="material-icons text-lg">edit</span>
+              </button>
+              <button onclick="deleteItem('classes', ${c.id}, '${c.name}')" class="p-1 text-slate-400 hover:text-red-500 transition-colors" title="Hapus">
+                <span class="material-icons text-lg">delete</span>
+              </button>
+            </div>
+          </td>
+        `;
+        body.appendChild(tr);
+      });
+    }
+
+    // ── TAB VIEW: KELOLA PROKTOR ──
+    function renderProktorTab(container) {
+      container.innerHTML = `
+        <div class="flex flex-wrap items-center justify-between gap-4 mb-6">
+          <div>
+            <h1 class="font-barlow font-black text-2xl text-white uppercase tracking-wider">KELOLA DATA PROKTOR</h1>
+            <p class="text-xs text-slate-400 mt-1">Kelola akun pengawas ruang ujian fisik dan penugasan ruangan.</p>
+          </div>
+          <button onclick="openFormModal('proktor')" class="clay-btn clay-btn-primary px-5 py-3 shadow-[0_3px_10px_rgba(239,68,68,0.3)]">
+            <span class="material-icons text-sm">add_circle</span>
+            Tambah Proktor
+          </button>
+        </div>
+
+        <!-- Filter Bar -->
+        <div class="clay-panel p-4 flex flex-col md:flex-row gap-4 items-center mb-6">
+          <div class="relative flex-1 w-full">
+            <span class="material-icons absolute left-3.5 top-3.5 text-slate-500 text-sm">search</span>
+            <input id="proktor-search" type="text" placeholder="Cari nama proktor..." value="${state.filters.proktor.search}" 
+              class="w-full pl-9 pr-4 py-3 clay-input text-xs" oninput="state.filters.proktor.search = this.value; renderProktorTable();">
+          </div>
+          
+          <div class="w-full md:w-52">
+            <select id="proktor-room" class="w-full clay-input text-xs cursor-pointer" onchange="state.filters.proktor.room = this.value; renderProktorTable();">
+              <option value="">Semua Ruangan</option>
+              ${state.rooms.map(rm => `<option value="${rm.name}" ${state.filters.proktor.room === rm.name ? 'selected' : ''}>${rm.name}</option>`).join('')}
+            </select>
+          </div>
+
+          <button onclick="resetProktorFilters()" class="w-full md:w-auto clay-btn clay-btn-secondary px-5 py-3">
+            <span class="material-icons text-sm">restart_alt</span>
+            Reset
+          </button>
+        </div>
+
+        <!-- Table Container -->
+        <div class="clay-panel overflow-hidden">
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr class="border-b border-white/5 bg-black/20 text-[10px] uppercase font-bold tracking-wider text-slate-400">
+                  <th class="p-4 pl-6">Nama Proktor</th>
+                  <th class="p-4">NIP / NISN</th>
+                  <th class="p-4">Ruang Tugas</th>
+                  <th class="p-4">Status</th>
+                  <th class="p-4 text-center">Aksi</th>
+                </tr>
+              </thead>
+              <tbody id="proktor-table-body" class="divide-y divide-white/5">
+                <!-- Loaded Dynamically -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      `;
+      renderProktorTable();
+    }
+
+    function renderProktorTable() {
+      const body = document.getElementById('proktor-table-body');
+      if (!body) return;
+      body.innerHTML = '';
+
+      const search = state.filters.proktor.search.toLowerCase();
+      const room = state.filters.proktor.room;
+
+      const filtered = state.proctors.filter(p => {
+        const matchesSearch = p.name.toLowerCase().includes(search) || p.nisn.includes(search);
+        const matchesRoom = !room || p.room === room;
+        return matchesSearch && matchesRoom;
+      });
+
+      if (filtered.length === 0) {
+        body.innerHTML = `
+          <tr>
+            <td colspan="5" class="p-8 text-center text-slate-500 font-semibold">
+              Tidak ada data proktor yang cocok dengan kriteria.
+            </td>
+          </tr>
+        `;
+        return;
+      }
+
+      filtered.forEach(p => {
+        const tr = document.createElement('tr');
+        tr.className = 'clay-table-row transition-colors';
+        tr.innerHTML = `
+          <td class="p-4 pl-6 font-bold text-white">${p.name}</td>
+          <td class="p-4 font-mono font-semibold text-slate-300">${p.nisn}</td>
+          <td class="p-4">
+            ${p.room ? `<span class="font-mono font-bold text-amber-500">${p.room}</span>` : '<span class="text-slate-500 italic">Belum ditugaskan</span>'}
+          </td>
+          <td class="p-4">${statusPill(p.verified ? 'aktif' : 'nonaktif')}</td>
+          <td class="p-4 text-center">
+            <div class="flex items-center justify-center gap-3">
+              <button onclick="openFormModal('proktor', ${p.id})" class="p-1 text-slate-400 hover:text-amber-500 transition-colors" title="Edit">
+                <span class="material-icons text-lg">edit</span>
+              </button>
+              <button onclick="deleteItem('proctors', ${p.id}, '${p.name}')" class="p-1 text-slate-400 hover:text-red-500 transition-colors" title="Hapus">
+                <span class="material-icons text-lg">delete</span>
+              </button>
+            </div>
+          </td>
+        `;
+        body.appendChild(tr);
+      });
+    }
+
+    function resetProktorFilters() {
+      document.getElementById('proktor-search').value = '';
+      document.getElementById('proktor-room').value = '';
+      state.filters.proktor.search = '';
+      state.filters.proktor.room = '';
+      renderProktorTable();
+      showToast('Filter proktor direset', 'info');
+    }
+
+    // ── TAB VIEW: KELOLA RUANGAN ──
+    function renderRuanganTab(container) {
+      container.innerHTML = `
+        <div class="flex flex-wrap items-center justify-between gap-4 mb-6">
+          <div>
+            <h1 class="font-barlow font-black text-2xl text-white uppercase tracking-wider">KELOLA RUANGAN FISIK</h1>
+            <p class="text-xs text-slate-400 mt-1">Daftar ruangan fisik / lab komputer yang digunakan untuk pengawasan ujian lab.</p>
+          </div>
+          <button onclick="openFormModal('ruangan')" class="clay-btn clay-btn-primary px-5 py-3 shadow-[0_3px_10px_rgba(239,68,68,0.3)]">
+            <span class="material-icons text-sm">add_circle</span>
+            Tambah Ruangan
+          </button>
+        </div>
+
+        <!-- Table Container -->
+        <div class="clay-panel overflow-hidden">
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr class="border-b border-white/5 bg-black/20 text-[10px] uppercase font-bold tracking-wider text-slate-400">
+                  <th class="p-4 pl-6">Nama Ruangan</th>
+                  <th class="p-4">Kapasitas Maksimal</th>
+                  <th class="p-4 text-center">Aksi</th>
+                </tr>
+              </thead>
+              <tbody id="ruangan-table-body" class="divide-y divide-white/5">
+                <!-- Loaded Dynamically -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      `;
+      renderRuanganTable();
+    }
+
+    function renderRuanganTable() {
+      const body = document.getElementById('ruangan-table-body');
+      if (!body) return;
+      body.innerHTML = '';
+
+      if (state.rooms.length === 0) {
+        body.innerHTML = `
+          <tr>
+            <td colspan="3" class="p-8 text-center text-slate-500 font-semibold">
+              Belum ada data ruangan fisik.
+            </td>
+          </tr>
+        `;
+        return;
+      }
+
+      state.rooms.forEach(r => {
+        const tr = document.createElement('tr');
+        tr.className = 'clay-table-row transition-colors';
+        tr.innerHTML = `
+          <td class="p-4 pl-6 font-mono font-bold text-amber-500 text-sm tracking-wide">${r.name}</td>
+          <td class="p-4 text-slate-300 font-semibold">${r.maxCapacity} Siswa</td>
+          <td class="p-4 text-center">
+            <div class="flex items-center justify-center gap-3">
+              <button onclick="openFormModal('ruangan', ${r.id})" class="p-1 text-slate-400 hover:text-amber-500 transition-colors" title="Edit">
+                <span class="material-icons text-lg">edit</span>
+              </button>
+              <button onclick="deleteItem('rooms', ${r.id}, '${r.name}')" class="p-1 text-slate-400 hover:text-red-500 transition-colors" title="Hapus">
+                <span class="material-icons text-lg">delete</span>
+              </button>
+            </div>
+          </td>
+        `;
+        body.appendChild(tr);
+      });
+    }
+
+    // ── TAB VIEW: TOKEN SESI ──
+    function renderTokenSesiTab(container) {
+      container.innerHTML = `
+        <div class="flex flex-wrap items-center justify-between gap-4 mb-6">
+          <div>
+            <h1 class="font-barlow font-black text-2xl text-white uppercase tracking-wider">TOKEN SESI MASUK</h1>
+            <p class="text-xs text-slate-400 mt-1">Buat token akses sesi ujian berdasar ruangan dan pengawas ruang.</p>
+          </div>
+          <button onclick="openFormModal('token-sesi')" class="clay-btn clay-btn-primary px-5 py-3 shadow-[0_3px_10px_rgba(239,68,68,0.3)]">
+            <span class="material-icons text-sm">add_circle</span>
+            Buat Token Sesi
+          </button>
+        </div>
+
+        <!-- Table Container -->
+        <div class="clay-panel overflow-hidden">
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr class="border-b border-white/5 bg-black/20 text-[10px] uppercase font-bold tracking-wider text-slate-400">
+                  <th class="p-4 pl-6">Token Sesi</th>
+                  <th class="p-4">Ruangan</th>
+                  <th class="p-4">Proktor Pengawas</th>
+                  <th class="p-4">Mulai Aktif</th>
+                  <th class="p-4">Selesai Aktif</th>
+                  <th class="p-4">Keterangan</th>
+                  <th class="p-4">Status</th>
+                  <th class="p-4 text-center">Aksi</th>
+                </tr>
+              </thead>
+              <tbody id="token-sesi-table-body" class="divide-y divide-white/5">
+                <!-- Loaded Dynamically -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      `;
+      renderTokenSesiTable();
+    }
+
+    function renderTokenSesiTable() {
+      const body = document.getElementById('token-sesi-table-body');
+      if (!body) return;
+      body.innerHTML = '';
+
+      if (state.sessions.length === 0) {
+        body.innerHTML = `
+          <tr>
+            <td colspan="8" class="p-8 text-center text-slate-500 font-semibold">
+              Belum ada token sesi yang aktif saat ini.
+            </td>
+          </tr>
+        `;
+        return;
+      }
+
+      const formatDT = (iso) => {
+        if (!iso) return '-';
+        const d = new Date(iso);
+        const pad = (n) => String(n).padStart(2, '0');
+        return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+      };
+
+      state.sessions.forEach(s => {
+        const tr = document.createElement('tr');
+        tr.className = 'clay-table-row transition-colors';
+        tr.innerHTML = `
+          <td class="p-4 pl-6 font-mono font-black text-amber-500 text-base tracking-wider">${s.token}</td>
+          <td class="p-4 font-semibold text-slate-300">${s.room}</td>
+          <td class="p-4 text-slate-300 font-bold">${s.proctor || '-'}</td>
+          <td class="p-4 font-mono font-semibold text-slate-400">${formatDT(s.validFrom)}</td>
+          <td class="p-4 font-mono font-semibold text-slate-400">${formatDT(s.validUntil)}</td>
+          <td class="p-4 text-slate-400">${s.description || '-'}</td>
+          <td class="p-4">${statusPill(s.active ? 'aktif' : 'nonaktif')}</td>
+          <td class="p-4 text-center">
+            <div class="flex items-center justify-center gap-2">
+              <button onclick="toggleSessionActive(${s.id})" class="p-1 text-slate-400 hover:text-emerald-500 transition-colors" title="${s.active ? 'Nonaktifkan Sesi' : 'Aktifkan Sesi'}">
+                <span class="material-icons text-lg">${s.active ? 'block' : 'check_circle'}</span>
+              </button>
+              <button onclick="deleteItem('sessions', ${s.id}, '${s.token}')" class="p-1 text-slate-400 hover:text-red-500 transition-colors" title="Hapus">
+                <span class="material-icons text-lg">delete</span>
+              </button>
+            </div>
+          </td>
+        `;
+        body.appendChild(tr);
+      });
+    }
+
+    function toggleSessionActive(id) {
+      const sess = state.sessions.find(s => s.id === id);
+      if (sess) {
+        sess.active = !sess.active;
+        addActivityLog('TOGGLE_SESSION', sess.token);
+        showToast(`Token sesi ${sess.token} status diubah`, 'success');
+        renderTokenSesiTable();
+      }
+    }
+
+    // ── GENERIC ACTION HANDLERS ──
+
+    // Delete item handler
+    function deleteItem(collectionName, id, label) {
+      if (confirm(`Apakah Anda yakin ingin menghapus "${label}"? Tindakan ini permanen.`)) {
+        let actionLabel = 'DELETE_USER';
+        
+        if (collectionName === 'teachers') {
+          state.teachers = state.teachers.filter(t => t.id !== id);
+          actionLabel = 'DELETE_USER';
+        } else if (collectionName === 'students') {
+          state.students = state.students.filter(s => s.id !== id);
+          actionLabel = 'DELETE_USER';
+        } else if (collectionName === 'exams') {
+          state.exams = state.exams.filter(e => e.id !== id);
+          actionLabel = 'DELETE_EXAM';
+        } else if (collectionName === 'questionBanks') {
+          state.questionBanks = state.questionBanks.filter(b => b.id !== id);
+          actionLabel = 'DELETE_BANK';
+        } else if (collectionName === 'classes') {
+          state.classes = state.classes.filter(c => c.id !== id);
+          actionLabel = 'DELETE_CLASS';
+        } else if (collectionName === 'proctors') {
+          state.proctors = state.proctors.filter(p => p.id !== id);
+          actionLabel = 'DELETE_USER';
+        } else if (collectionName === 'rooms') {
+          state.rooms = state.rooms.filter(r => r.id !== id);
+          actionLabel = 'DELETE_ROOM';
+        } else if (collectionName === 'sessions') {
+          state.sessions = state.sessions.filter(s => s.id !== id);
+          actionLabel = 'TOGGLE_SESSION'; // fallback action log type
+        }
+
+        addActivityLog(actionLabel, label);
+        showToast(`"${label}" berhasil dihapus`, 'success');
+        renderTabContent();
+      }
+    }
+
+    // FAB Add action handler
+    function handleFabClick() {
+      // Open create form for the currently active tab if applicable, default to Ujian
+      const tabToForm = {
+        guru: 'guru',
+        siswa: 'siswa',
+        ujian: 'ujian',
+        mapel: 'mapel',
+        kelas: 'kelas',
+        proktor: 'proktor',
+        ruangan: 'ruangan',
+        'token-sesi': 'token-sesi'
+      };
+      const role = tabToForm[state.activeTab] || 'ujian';
+      openFormModal(role);
+    }
+
+    // ── RIGHT SIDEBAR ACTIVITIES LOADERS ──
+    function renderRightSidebarActivities() {
+      const feed = document.getElementById('global-activity-feed');
+      if (!feed) return;
+      feed.innerHTML = '';
+
+      const slice = state.activityLogs.slice(0, 5);
+
+      if (slice.length === 0) {
+        feed.innerHTML = `
+          <div class="p-6 text-center text-slate-500 font-semibold text-xs">
+            Belum ada aktivitas.
+          </div>
+        `;
+        return;
+      }
+
+      slice.forEach(log => {
+        const meta = getActivityMeta(log.action);
+        const desc = formatActivityDescription(log);
+        const time = relativeTime(log.createdAt);
+
+        const card = document.createElement('div');
+        card.className = 'p-3 flex items-start gap-3 transition-colors hover:bg-white/5 border-b border-white/5';
+        card.innerHTML = `
+          <div class="w-7 h-7 rounded-2xl flex items-center justify-center shrink-0 mt-0.5 border border-white/5 shadow-[inset_1px_1px_2px_rgba(255,255,255,0.05),inset_-1px_-1px_2px_rgba(0,0,0,0.3)]" style="background-color: ${meta.bg}; color: ${meta.color}">
+            <span class="material-icons text-xs" style="font-size: 13px;">${meta.icon}</span>
+          </div>
+          <div class="flex-1 min-w-0 flex flex-col gap-0.5">
+            <p class="text-[11px] text-slate-300 leading-normal">${desc}</p>
+            <span class="text-[9px] text-slate-500 mt-1 font-semibold">${time}</span>
+          </div>
+        `;
+        feed.appendChild(card);
+      });
+    }
+
+    // ── REAL TIME NOTIFICATION LIST LOADER ──
+    function loadNotificationDropdown() {
+      const list = document.getElementById('real-time-notification-list');
+      if (!list) return;
+
+      const mockNotifs = [
+        { desc: '<span class="font-bold text-white">Andi Wijaya</span> terdeteksi keluar dari layar ujian!', time: '1 menit yang lalu • Ujian Sastra Indonesia', isAlert: true },
+        { desc: '<span class="font-bold text-white">Siti Aminah</span> berhasil menyelesaikan ujian Kimia Analisis.', time: '10 menit yang lalu • Selesai Ujian', isAlert: false },
+        { desc: 'Token sesi <span class="font-bold text-amber-500">SESS-8291</span> berhasil diaktifkan oleh admin.', time: '15 menit yang lalu • Event Sesi', isAlert: false }
+      ];
+
+      list.innerHTML = '';
+      mockNotifs.forEach(n => {
+        list.innerHTML += `
+          <div class="p-3.5 hover:bg-white/5 transition-colors ${n.isAlert ? 'bg-red-500/5' : ''}">
+            <p class="text-xs text-slate-300">${n.desc}</p>
+            <p class="text-[10px] text-slate-500 mt-1 font-semibold">${n.time}</p>
+          </div>
+        `;
+      });
+    }
+
+    // Notification dropdown toggle
+    function toggleNotificationDropdown() {
+      const drop = document.getElementById('notifications-dropdown');
+      drop.classList.toggle('hidden');
+    }
+
+    // ── SEARCH IN TOP BAR HANDLERS ──
+    function handleGlobalSearch(query) {
+      const drop = document.getElementById('search-results');
+      const list = document.getElementById('search-results-list');
+      
+      if (!query.trim()) {
+        drop.classList.add('hidden');
+        return;
+      }
+
+      // Dynamic search pool combining all collection items
+      const pool = [
+        ...state.teachers.map(t => ({ name: t.name, type: 'Guru', desc: 'NIP: ' + t.nisn, action: () => switchTab('guru') })),
+        ...state.students.map(s => ({ name: s.name, type: 'Siswa', desc: 'Kelas: ' + s.class, action: () => switchTab('siswa') })),
+        ...state.exams.map(e => ({ name: e.title, type: 'Ujian', desc: 'Token: ' + e.token, action: () => switchTab('ujian') })),
+        ...state.questionBanks.map(b => ({ name: b.name, type: 'Bank Soal', desc: 'Mapel: ' + b.subject, action: () => switchTab('mapel') }))
+      ];
+
+      const filtered = pool.filter(item => 
+        item.name.toLowerCase().includes(query.toLowerCase()) || 
+        item.type.toLowerCase().includes(query.toLowerCase())
+      );
+
+      list.innerHTML = '';
+      if (filtered.length === 0) {
+        list.innerHTML = `<div class="text-[11px] text-slate-500 p-2 text-center font-bold">Data tidak ditemukan.</div>`;
+      } else {
+        filtered.slice(0, 5).forEach(item => {
+          const typeColors = {
+            'Siswa': 'text-red-400 bg-red-500/10 border border-red-500/20',
+            'Guru': 'text-blue-400 bg-blue-500/10 border border-blue-500/20',
+            'Ujian': 'text-amber-500 bg-amber-500/10 border border-amber-500/20',
+            'Bank Soal': 'text-emerald-400 bg-emerald-500/10 border border-emerald-500/20'
+          };
+          const div = document.createElement('div');
+          div.className = 'p-2.5 hover:bg-white/5 rounded-xl cursor-pointer transition-colors';
+          div.innerHTML = `
+            <div class="flex items-center justify-between text-xs font-semibold">
+              <span class="text-white font-bold">${item.name}</span>
+              <span class="clay-badge ${typeColors[item.type]}">${item.type}</span>
+            </div>
+            <div class="text-[10px] text-slate-500 font-bold mt-0.5">${item.desc}</div>
+          `;
+          div.onclick = () => {
+            item.action();
+            document.getElementById('global-search').value = '';
+            drop.classList.add('hidden');
+          };
+          list.appendChild(div);
+        });
+      }
+      drop.classList.remove('hidden');
+    }
+
+    // ── MODAL: PROCTORING RADAR ──
+    function openProctoringModal() {
+      document.getElementById('proctoring-modal').classList.remove('hidden');
+      document.body.classList.add('overflow-hidden');
+      loadProctoringRadarTable();
+    }
+    function closeProctoringModal() {
+      document.getElementById('proctoring-modal').classList.add('hidden');
+      document.body.classList.remove('overflow-hidden');
+    }
+
+    function loadProctoringRadarTable() {
+      const body = document.getElementById('proctoring-radar-table');
+      if (!body) return;
+      body.innerHTML = '';
+
+      state.proctoringStudents.forEach(s => {
+        let statusStyle = 'bg-white/5 text-slate-400 border-white/5';
+        if (s.screenStatus.includes('Keluar')) {
+          statusStyle = 'bg-amber-500/15 text-amber-500 border-amber-500/25 font-bold';
+        } else if (s.screenStatus.includes('Terkunci')) {
+          statusStyle = 'bg-red-500/15 text-red-500 border-red-500/25 font-black';
+        }
+
+        const tr = document.createElement('tr');
+        tr.className = 'hover:bg-white/5 transition-all';
+        tr.innerHTML = `
+          <td class="p-3 flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full ${s.isOnline ? 'bg-emerald-500' : 'bg-slate-600'}"></span>
+            <span class="font-bold text-white">${s.name}</span>
+          </td>
+          <td class="p-3 text-slate-400">${s.exam}</td>
+          <td class="p-3">
+            <span class="clay-badge ${statusStyle}">${s.screenStatus}</span>
+          </td>
+          <td class="p-3 text-center">
+            <div class="flex items-center justify-center gap-1.5">
+              ${s.isLocked ? `
+                <button onclick="resetProctoringStudent('${s.name}')" class="clay-btn clay-btn-success px-2.5 py-1.5 text-[9px]">Reset Sesi</button>
+              ` : `
+                <button onclick="warnProctoringStudent('${s.name}')" class="clay-btn clay-btn-warning px-2.5 py-1.5 text-[9px]" ${s.isLocked ? 'disabled' : ''}>Kirim Warn</button>
+              `}
+            </div>
+          </td>
+        `;
+        body.appendChild(tr);
+      });
+    }
+
+    function warnProctoringStudent(name) {
+      const student = state.proctoringStudents.find(s => s.name === name);
+      if (student) {
+        student.warningCount++;
+        student.screenStatus = `Keluar Layar (${student.warningCount})`;
+        
+        if (student.warningCount >= configState.maxOut) {
+          student.screenStatus = 'Layar Terkunci';
+          student.isLocked = true;
+          student.isOnline = false;
+          showToast(`Siswa "${name}" otomatis terkunci (melebihi batas keluar screen)`, 'error');
+          addActivityLog('RESET_STUDENT_SESSION', name); // logged locking
+        } else {
+          showToast(`Peringatan dikirim ke "${name}"`, 'warning');
+        }
+        
+        loadProctoringRadarTable();
+      }
+    }
+
+    function resetProctoringStudent(name) {
+      if (confirm(`Apakah Anda yakin ingin membuka kunci sesi ujian ${name}?`)) {
+        const student = state.proctoringStudents.find(s => s.name === name);
+        if (student) {
+          student.warningCount = 0;
+          student.screenStatus = 'Fokus Aktif';
+          student.isLocked = false;
+          student.isOnline = true;
+          showToast(`Sesi ujian siswa "${name}" berhasil direset`, 'success');
+          addActivityLog('RESET_STUDENT_SESSION', name);
+          loadProctoringRadarTable();
+        }
+      }
+    }
+
+    // ── MODAL: SETTINGS ──
+    function openSettingsModal() {
+      document.getElementById('settings-modal').classList.remove('hidden');
+      document.body.classList.add('overflow-hidden');
+      
+      document.getElementById('setting-sync-interval').value = configState.syncInterval;
+      document.getElementById('setting-max-out').value = configState.maxOut;
+      document.getElementById('setting-heartbeat').checked = configState.heartbeat;
+    }
+    function closeSettingsModal() {
+      document.getElementById('settings-modal').classList.add('hidden');
+      document.body.classList.remove('overflow-hidden');
+    }
+    function saveSettings() {
+      configState.syncInterval = Number(document.getElementById('setting-sync-interval').value);
+      configState.maxOut = Number(document.getElementById('setting-max-out').value);
+      configState.heartbeat = document.getElementById('setting-heartbeat').checked;
+      
+      closeSettingsModal();
+      showToast('Konfigurasi pengaturan berhasil disimpan', 'success');
+    }
+
+    // ── MODAL: EXCEL IMPORT ──
+    function openImportModal() {
+      document.getElementById('import-modal').classList.remove('hidden');
+      document.body.classList.add('overflow-hidden');
+      document.getElementById('import-excel-file').value = '';
+      document.getElementById('import-error').classList.add('hidden');
+    }
+    function closeImportModal() {
+      document.getElementById('import-modal').classList.add('hidden');
+      document.body.classList.remove('overflow-hidden');
+    }
+    function downloadExcelTemplate() {
+      showToast('Template Excel berhasil diunduh', 'success');
+    }
+    function processExcelUpload() {
+      const fileInput = document.getElementById('import-excel-file');
+      const errEl = document.getElementById('import-error');
+
+      if (!fileInput.files.length) {
+        errEl.textContent = 'Pilih file Excel terlebih dahulu.';
+        errEl.classList.remove('hidden');
+        return;
+      }
+
+      // Simulate a response requiring typo resolutions (e.g. major RPL typoed to "RPL-Class")
+      const unresolvedRows = [
+        { row: 4, nama: 'Rian Hidayat', nisn: '0084920194', tingkat: 'XI', jurusanRaw: 'RPL-Class' },
+        { row: 7, nama: 'Dewi Lestari', nisn: '0074829103', tingkat: 'XII', jurusanRaw: 'DKV-Art' }
+      ];
+
+      state.tempExcelImportData = unresolvedRows;
+      
+      closeImportModal();
+      openTypoModal();
+    }
+
+    // ── MODAL: TYPO RESOLUTION ──
+    function openTypoModal() {
+      document.getElementById('typo-modal').classList.remove('hidden');
+      document.body.classList.add('overflow-hidden');
+      
+      const container = document.getElementById('typo-rows-container');
+      container.innerHTML = '';
+
+      state.tempExcelImportData.forEach((row, idx) => {
+        container.innerHTML += `
+          <div class="p-3.5 bg-black/20 border border-white/5 rounded-2xl">
+            <p class="text-xs text-slate-300 mb-2 leading-relaxed">
+              Baris ${row.row}: <strong class="text-white">${row.nama}</strong> — Jurusan tidak dikenali: 
+              <span class="font-mono text-red-400 font-bold bg-red-500/10 px-2 py-0.5 rounded">"${row.jurusanRaw}"</span>
+            </p>
+            <select data-idx="${idx}" class="typo-select w-full clay-input text-xs cursor-pointer">
+              <option value="">-- Pilih Jurusan yang Benar --</option>
+              ${JURUSAN_LIST.map(j => `<option value="${j}">${j}</option>`).join('')}
+            </select>
+          </div>
+        `;
+      });
+    }
+
+    function closeTypoModal() {
+      document.getElementById('typo-modal').classList.add('hidden');
+      document.body.classList.remove('overflow-hidden');
+    }
+
+    function saveTypoResolutions() {
+      const selects = document.querySelectorAll('.typo-select');
+      let allResolved = true;
+
+      selects.forEach(sel => {
+        if (!sel.value) {
+          allResolved = false;
+        }
+      });
+
+      if (!allResolved) {
+        alert('Mohon pilih jurusan pengganti yang sesuai untuk seluruh baris data.');
+        return;
+      }
+
+      // Process import simulation into main state
+      selects.forEach(sel => {
+        const idx = Number(sel.dataset.idx);
+        const resolvedMajor = sel.value;
+        const studentData = state.tempExcelImportData[idx];
+
+        // Check if student exists or create new one
+        const exists = state.students.find(s => s.nisn === studentData.nisn);
+        if (!exists) {
+          state.students.push({
+            id: Date.now() + Math.random(),
+            name: studentData.nama,
+            nisn: studentData.nisn,
+            class: `${studentData.tingkat} ${resolvedMajor}`,
+            room: 'RUANG-12',
+            academicYear: '2026/2027',
+            year: '2026'
+          });
+        }
+      });
+
+      closeTypoModal();
+      addActivityLog('IMPORT_QUESTIONS', 'Data Siswa Excel (2 Diimpor)');
+      showToast('Data Excel berhasil diproses dan disimpan', 'success');
+      renderSiswaTab(document.getElementById('main-content-area'));
+    }
+
+    // ── ALL ACTIVITIES LOG MODAL ──
+    function openAllActivitiesModal() {
+      // Build a modal dynamically
+      const overlay = document.createElement('div');
+      overlay.id = 'all-activities-modal';
+      overlay.className = 'fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4';
+      overlay.innerHTML = `
+        <div class="fixed inset-0 bg-black/85 backdrop-blur-md" onclick="document.getElementById('all-activities-modal').remove();"></div>
+        <div class="relative clay-panel max-w-lg w-full p-6 overflow-hidden z-10 modal-animate flex flex-col gap-4">
+          <div class="flex items-center justify-between pb-3 border-b border-white/5">
+            <div class="flex items-center gap-3">
+              <div class="w-9 h-9 rounded-2xl bg-red-500/10 border border-red-500/30 flex items-center justify-center text-red-500">
+                <span class="material-icons text-sm">history</span>
+              </div>
+              <div>
+                <h3 class="font-barlow text-lg font-black uppercase text-white tracking-wider">Seluruh Log Aktivitas</h3>
+                <p class="text-[10px] text-slate-400 mt-0.5">Daftar rekaman perubahan sistem terbaru</p>
+              </div>
+            </div>
+            <button onclick="document.getElementById('all-activities-modal').remove();" class="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white transition-colors">
+              <span class="material-icons text-sm">close</span>
+            </button>
+          </div>
+          
+          <div class="divide-y divide-white/5 max-h-[50vh] overflow-y-auto pr-1" id="all-activities-list"></div>
+          
+          <button onclick="document.getElementById('all-activities-modal').remove();" class="w-full py-3 clay-btn clay-btn-secondary mt-2">Tutup Log</button>
+        </div>
+      `;
+      document.body.appendChild(overlay);
+
+      const list = document.getElementById('all-activities-list');
+      state.activityLogs.forEach(log => {
+        const meta = getActivityMeta(log.action);
+        const desc = formatActivityDescription(log);
+        list.innerHTML += `
+          <div class="flex items-start gap-3.5 py-3.5">
+            <div class="w-8 h-8 rounded-2xl flex items-center justify-center shrink-0 mt-0.5 border border-white/5 shadow-[inset_1px_1px_2px_rgba(255,255,255,0.05)]" style="background-color: ${meta.bg}; color: ${meta.color}">
+              <span class="material-icons text-xs">${meta.icon}</span>
+            </div>
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center justify-between gap-2">
+                <span class="text-[11px] font-bold text-slate-300">${meta.label}</span>
+                <span class="text-[10px] text-slate-500 font-medium">${relativeTime(log.createdAt)}</span>
+              </div>
+              <div class="text-[11px] text-slate-400 mt-1 leading-normal">${desc}</div>
+            </div>
+          </div>
+        `;
+      });
+    }
+
+    // ── MODALS: CREATE/EDIT FORMS CONTROLLER ──
+    function openFormModal(role, id = null) {
+      state.currentEditingItem = { role, id };
+      const isEdit = id !== null;
+
+      const modal = document.getElementById('form-modal');
+      const titleEl = document.getElementById('form-modal-title');
+      const iconEl = document.getElementById('form-modal-icon');
+      const fieldsContainer = document.getElementById('form-fields-container');
+      const errEl = document.getElementById('form-error');
+
+      errEl.classList.add('hidden');
+      modal.classList.remove('hidden');
+      document.body.classList.add('overflow-hidden');
+
+      // Set headers
+      iconEl.textContent = isEdit ? 'edit' : 'add';
+      titleEl.textContent = `${isEdit ? 'Edit' : 'Tambah'} ${role.replace('-', ' ').toUpperCase()}`;
+
+      // Load form fields content
+      let fieldsHtml = '';
+
+      if (role === 'guru') {
+        const item = isEdit ? state.teachers.find(t => t.id === id) : { name: '', nisn: '', verified: true };
+        fieldsHtml = `
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5">Nama Lengkap</label>
+            <input type="text" id="form-field-name" required value="${item.name}" placeholder="Contoh: Bu Retno Lestari, S.Si." class="w-full clay-input">
+          </div>
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5">NIP / NISN</label>
+            <input type="text" id="form-field-nisn" required value="${item.nisn}" ${isEdit ? 'disabled' : ''} placeholder="Contoh: 198711042014022001" class="w-full clay-input disabled:opacity-50">
+          </div>
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5">Password ${isEdit ? '(kosongkan jika tidak diganti)' : ''}</label>
+            <input type="password" id="form-field-pass" placeholder="${isEdit ? 'Isi untuk mengganti' : 'Min 6 karakter'}" class="w-full clay-input">
+          </div>
+          <div class="flex items-center justify-between p-3.5 bg-black/25 rounded-2xl border border-white/5">
+            <div>
+              <h4 class="font-bold text-white text-xs">Status Verifikasi</h4>
+              <p class="text-[9px] text-slate-500 mt-0.5">Izinkan akses login guru ini ke sistem</p>
+            </div>
+            <label class="relative inline-flex items-center cursor-pointer">
+              <input type="checkbox" id="form-field-verified" ${item.verified ? 'checked' : ''} class="sr-only peer">
+              <div class="w-9 h-5 bg-slate-800 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-slate-400 after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-red-500 peer-checked:after:bg-white"></div>
+            </label>
+          </div>
+        `;
+      } 
+      else if (role === 'siswa') {
+        const item = isEdit ? state.students.find(s => s.id === id) : { name: '', nisn: '', class: '', room: '', academicYear: '2026/2027' };
+        fieldsHtml = `
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5">Nama Lengkap Siswa</label>
+            <input type="text" id="form-field-name" required value="${item.name}" placeholder="Contoh: Muhammad Ali" class="w-full clay-input">
+          </div>
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5">NISN</label>
+            <input type="text" id="form-field-nisn" required value="${item.nisn}" ${isEdit ? 'disabled' : ''} placeholder="Contoh: 0081273940" class="w-full clay-input disabled:opacity-50">
+          </div>
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5">Kelas</label>
+            <select id="form-field-class" required class="w-full clay-input cursor-pointer">
+              <option value="">-- Pilih Kelas --</option>
+              ${state.classes.map(c => `<option value="${c.name}" ${item.class === c.name ? 'selected' : ''}>${c.name}</option>`).join('')}
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5">Ruang Tugas</label>
+            <select id="form-field-room" class="w-full clay-input cursor-pointer">
+              <option value="">-- Pilih Ruangan --</option>
+              ${state.rooms.map(rm => `<option value="${rm.name}" ${item.room === rm.name ? 'selected' : ''}>${rm.name}</option>`).join('')}
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5">Tahun Ajaran</label>
+            <input type="text" id="form-field-academicyear" value="${item.academicYear}" placeholder="Contoh: 2026/2027" class="w-full clay-input">
+          </div>
+        `;
+      } 
+      else if (role === 'ujian') {
+        const item = isEdit ? state.exams.find(e => e.id === id) : { title: '', subject: '', teacherId: '', durationMinutes: 90, startTime: '', endTime: '', classes: [] };
+        fieldsHtml = `
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5">Nama Ujian</label>
+            <input type="text" id="form-field-title" required value="${item.title}" placeholder="Contoh: UAS Kimia Analisis Ganjil" class="w-full clay-input">
+          </div>
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5">Bank Soal / Mata Pelajaran</label>
+            <select id="form-field-bank" required class="w-full clay-input cursor-pointer" onchange="syncExamFormMeta(this)">
+              <option value="">-- Pilih Bank Soal --</option>
+              ${state.questionBanks.map(b => `<option value="${b.id}" data-subject="${b.subject}" data-creator="${b.creator}" ${isEdit && item.subject === b.subject ? 'selected' : ''}>${b.name} — ${b.subject} (${b.creator})</option>`).join('')}
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5">Durasi (Menit)</label>
+            <input type="number" id="form-field-duration" required value="${item.durationMinutes}" class="w-full clay-input">
+          </div>
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5">Jadwal Mulai</label>
+              <input type="datetime-local" id="form-field-start" required value="${item.startTime || ''}" class="w-full clay-input">
+            </div>
+            <div>
+              <label class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5">Jadwal Selesai</label>
+              <input type="datetime-local" id="form-field-end" required value="${item.endTime || ''}" class="w-full clay-input">
+            </div>
+          </div>
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5">Kelas Peserta</label>
+            <div class="p-3 bg-black/25 rounded-2xl border border-white/5 max-h-32 overflow-y-auto space-y-2" id="form-field-classes-picker">
+              ${state.classes.map(c => `
+                <label class="flex items-center gap-2 cursor-pointer text-xs">
+                  <input type="checkbox" value="${c.id}" ${item.classes && item.classes.includes(c.id) ? 'checked' : ''} class="accent-red-500">
+                  <span class="text-slate-300 font-bold">${c.name}</span>
+                </label>
+              `).join('')}
+            </div>
+          </div>
+        `;
+      } 
+      else if (role === 'mapel') {
+        const item = isEdit ? state.questionBanks.find(b => b.id === id) : { name: '', subject: '' };
+        fieldsHtml = `
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5">Nama Bank Soal</label>
+            <input type="text" id="form-field-name" required value="${item.name}" placeholder="Contoh: Bank Soal PTS Ganjil" class="w-full clay-input">
+          </div>
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5">Mata Pelajaran</label>
+            <input type="text" id="form-field-subject" required value="${item.subject}" placeholder="Contoh: Kimia Analisis" class="w-full clay-input">
+          </div>
+        `;
+      } 
+      else if (role === 'kelas') {
+        const item = isEdit ? state.classes.find(c => c.id === id) : { name: '', major: '', grade: '' };
+        fieldsHtml = `
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5">Tingkat Kelas</label>
+            <select id="form-field-grade" required class="w-full clay-input cursor-pointer">
+              <option value="">-- Pilih Tingkat --</option>
+              <option value="X" ${item.grade === 'X' ? 'selected' : ''}>Tingkat X</option>
+              <option value="XI" ${item.grade === 'XI' ? 'selected' : ''}>Tingkat XI</option>
+              <option value="XII" ${item.grade === 'XII' ? 'selected' : ''}>Tingkat XII</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5">Jurusan</label>
+            <select id="form-field-major" required class="w-full clay-input cursor-pointer">
+              <option value="">-- Pilih Jurusan --</option>
+              ${JURUSAN_LIST.map(j => `<option value="${j}" ${item.major === j ? 'selected' : ''}>${j}</option>`).join('')}
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5">Nama Kelas Lengkap</label>
+            <input type="text" id="form-field-name" required value="${item.name}" placeholder="Contoh: XII RPL" class="w-full clay-input">
+          </div>
+        `;
+      } 
+      else if (role === 'proktor') {
+        const item = isEdit ? state.proctors.find(p => p.id === id) : { name: '', nisn: '', roomId: '', verified: true };
+        fieldsHtml = `
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5">Nama Lengkap Proktor</label>
+            <input type="text" id="form-field-name" required value="${item.name}" placeholder="Contoh: Pak Joko Purnomo" class="w-full clay-input">
+          </div>
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5">NIP / NISN</label>
+            <input type="text" id="form-field-nisn" required value="${item.nisn}" ${isEdit ? 'disabled' : ''} placeholder="Contoh: 197902102008011003" class="w-full clay-input disabled:opacity-50">
+          </div>
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5">Ruang Tugas</label>
+            <select id="form-field-room" required class="w-full clay-input cursor-pointer">
+              <option value="">-- Pilih Ruangan --</option>
+              ${state.rooms.map(rm => `<option value="${rm.id}" data-name="${rm.name}" ${item.roomId === rm.id ? 'selected' : ''}>${rm.name}</option>`).join('')}
+            </select>
+          </div>
+          <div class="flex items-center justify-between p-3.5 bg-black/25 rounded-2xl border border-white/5">
+            <div>
+              <h4 class="font-bold text-white text-xs">Status Verifikasi</h4>
+              <p class="text-[9px] text-slate-500 mt-0.5">Izinkan akses login proktor ke dashboard</p>
+            </div>
+            <label class="relative inline-flex items-center cursor-pointer">
+              <input type="checkbox" id="form-field-verified" ${item.verified ? 'checked' : ''} class="sr-only peer">
+              <div class="w-9 h-5 bg-slate-800 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-slate-400 after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-red-500 peer-checked:after:bg-white"></div>
+            </label>
+          </div>
+        `;
+      } 
+      else if (role === 'ruangan') {
+        const item = isEdit ? state.rooms.find(r => r.id === id) : { name: '', maxCapacity: 36 };
+        fieldsHtml = `
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5">Nama Ruangan</label>
+            <input type="text" id="form-field-name" required value="${item.name}" placeholder="Contoh: LAB-KOM-3" class="w-full clay-input uppercase">
+          </div>
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5">Kapasitas Maksimal</label>
+            <input type="number" id="form-field-capacity" required value="${item.maxCapacity}" class="w-full clay-input">
+          </div>
+        `;
+      } 
+      else if (role === 'token-sesi') {
+        const item = isEdit ? state.sessions.find(s => s.id === id) : { roomId: '', proctorId: '', validFrom: '', validUntil: '', description: '' };
+        
+        // Setup default times for token-sesi (today 00:00 to 23:59)
+        const formatLocalDate = (date) => {
+          const tzoffset = date.getTimezoneOffset() * 60000;
+          return new Date(date.getTime() - tzoffset).toISOString().slice(0, 16);
+        };
+        const defaultStart = new Date(); defaultStart.setHours(0, 0, 0, 0);
+        const defaultEnd = new Date(); defaultEnd.setHours(23, 59, 59, 999);
+
+        fieldsHtml = `
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5">Ruangan Ujian</label>
+            <select id="form-field-room" required class="w-full clay-input cursor-pointer">
+              <option value="">-- Pilih Ruangan --</option>
+              ${state.rooms.map(rm => `<option value="${rm.id}" data-name="${rm.name}" ${item.roomId === rm.id ? 'selected' : ''}>${rm.name}</option>`).join('')}
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5">Proktor Ditugaskan <span class="text-slate-500 font-normal">(opsional)</span></label>
+            <select id="form-field-proctor" class="w-full clay-input cursor-pointer">
+              <option value="">-- Pilih Proktor --</option>
+              ${state.proctors.map(p => `<option value="${p.id}" data-name="${p.name}" ${item.proctorId === p.id ? 'selected' : ''}>${p.name}</option>`).join('')}
+            </select>
+          </div>
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5">Mulai Aktif</label>
+              <input type="datetime-local" id="form-field-start" required value="${item.validFrom || formatLocalDate(defaultStart)}" class="w-full clay-input">
+            </div>
+            <div>
+              <label class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5">Selesai Aktif</label>
+              <input type="datetime-local" id="form-field-end" required value="${item.validUntil || formatLocalDate(defaultEnd)}" class="w-full clay-input">
+            </div>
+          </div>
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5">Keterangan Sesi</label>
+            <input type="text" id="form-field-description" value="${item.description || ''}" placeholder="Contoh: Sesi Pagi Ujian Utama" class="w-full clay-input">
+          </div>
+        `;
+      }
+
+      fieldsContainer.innerHTML = fieldsHtml;
+    }
+
+    function closeFormModal() {
+      document.getElementById('form-modal').classList.add('hidden');
+      document.body.classList.remove('overflow-hidden');
+    }
+
+    function syncExamFormMeta(selectEl) {
+      const selectedOption = selectEl.options[selectEl.selectedIndex];
+      if (selectedOption && selectedOption.value) {
+        showToast(`Mapel dan Guru Sinkron: ${selectedOption.dataset.subject}`, 'info');
+      }
+    }
+
+    // Process save / update form submits
+    function handleFormSubmit(e) {
+      e.preventDefault();
+      
+      const { role, id } = state.currentEditingItem;
+      const isEdit = id !== null;
+      const errEl = document.getElementById('form-error');
+
+      try {
+        if (role === 'guru') {
+          const name = document.getElementById('form-field-name').value.trim();
+          const nisn = document.getElementById('form-field-nisn').value.trim();
+          const verified = document.getElementById('form-field-verified').checked;
+
+          if (isEdit) {
+            const item = state.teachers.find(t => t.id === id);
+            item.name = name;
+            item.verified = verified;
+            addActivityLog('UPDATE_USER', name);
+          } else {
+            if (state.teachers.find(t => t.nisn === nisn)) throw new Error('NIP sudah terdaftar!');
+            state.teachers.push({ id: Date.now(), name, nisn, verified });
+            addActivityLog('CREATE_USER', name);
+          }
+        } 
+        else if (role === 'siswa') {
+          const name = document.getElementById('form-field-name').value.trim();
+          const nisn = document.getElementById('form-field-nisn').value.trim();
+          const className = document.getElementById('form-field-class').value;
+          const room = document.getElementById('form-field-room').value;
+          const academicYear = document.getElementById('form-field-academicyear').value.trim();
+
+          if (isEdit) {
+            const item = state.students.find(s => s.id === id);
+            item.name = name;
+            item.class = className;
+            item.room = room;
+            item.academicYear = academicYear;
+            addActivityLog('UPDATE_USER', name);
+          } else {
+            if (state.students.find(s => s.nisn === nisn)) throw new Error('NISN sudah terdaftar!');
+            state.students.push({ id: Date.now(), name, nisn, class: className, room, academicYear, year: academicYear.split('/')[0] });
+            addActivityLog('CREATE_USER', name);
+          }
+        } 
+        else if (role === 'ujian') {
+          const title = document.getElementById('form-field-title').value.trim();
+          const bankSelect = document.getElementById('form-field-bank');
+          const opt = bankSelect.options[bankSelect.selectedIndex];
+          const duration = Number(document.getElementById('form-field-duration').value);
+          const start = document.getElementById('form-field-start').value;
+          const end = document.getElementById('form-field-end').value;
+
+          // Gather multi-selected classes
+          const classBoxes = document.querySelectorAll('#form-field-classes-picker input:checked');
+          const classIds = Array.from(classBoxes).map(cb => Number(cb.value));
+
+          if (classIds.length === 0) throw new Error('Pilih minimal satu kelas peserta.');
+          if (new Date(end) <= new Date(start)) throw new Error('Jadwal selesai harus setelah jadwal mulai.');
+
+          if (isEdit) {
+            const item = state.exams.find(ex => ex.id === id);
+            item.title = title;
+            item.subject = opt.dataset.subject;
+            item.teacher = opt.dataset.creator;
+            item.durationMinutes = duration;
+            item.startTime = start;
+            item.endTime = end;
+            item.classes = classIds;
+            addActivityLog('UPDATE_EXAM', title);
+          } else {
+            const token = Math.random().toString(36).substring(2, 8).toUpperCase();
+            state.exams.push({
+              id: Date.now(), title, subject: opt.dataset.subject, teacher: opt.dataset.creator, token, status: 'draft',
+              durationMinutes: duration, startTime: start, endTime: end, classes: classIds
+            });
+            addActivityLog('CREATE_EXAM', title);
+          }
+        } 
+        else if (role === 'mapel') {
+          const name = document.getElementById('form-field-name').value.trim();
+          const subject = document.getElementById('form-field-subject').value.trim();
+
+          if (isEdit) {
+            const item = state.questionBanks.find(b => b.id === id);
+            item.name = name;
+            item.subject = subject;
+            addActivityLog('UPDATE_BANK', name);
+          } else {
+            state.questionBanks.push({ id: Date.now(), name, subject, questionCount: 0, creator: 'System Admin', creatorRole: 'admin' });
+            addActivityLog('CREATE_BANK', name);
+          }
+        } 
+        else if (role === 'kelas') {
+          const name = document.getElementById('form-field-name').value.trim();
+          const major = document.getElementById('form-field-major').value;
+          const grade = document.getElementById('form-field-grade').value;
+
+          if (isEdit) {
+            const item = state.classes.find(c => c.id === id);
+            item.name = name;
+            item.major = major;
+            item.grade = grade;
+            addActivityLog('UPDATE_CLASS', name);
+          } else {
+            state.classes.push({ id: Date.now(), name, major, grade, studentCount: 0, gradeId: grade === 'X' ? 1 : grade === 'XI' ? 2 : 3 });
+            addActivityLog('CREATE_CLASS', name);
+          }
+        } 
+        else if (role === 'proktor') {
+          const name = document.getElementById('form-field-name').value.trim();
+          const nisn = document.getElementById('form-field-nisn').value.trim();
+          const roomSelect = document.getElementById('form-field-room');
+          const opt = roomSelect.options[roomSelect.selectedIndex];
+          const verified = document.getElementById('form-field-verified').checked;
+
+          if (isEdit) {
+            const item = state.proctors.find(p => p.id === id);
+            item.name = name;
+            item.roomId = Number(roomSelect.value);
+            item.room = opt ? opt.dataset.name : '';
+            item.verified = verified;
+            addActivityLog('UPDATE_USER', name);
+          } else {
+            if (state.proctors.find(p => p.nisn === nisn)) throw new Error('NIP proktor sudah terdaftar!');
+            state.proctors.push({
+              id: Date.now(), name, nisn, roomId: Number(roomSelect.value), room: opt ? opt.dataset.name : '', verified
+            });
+            addActivityLog('CREATE_USER', name);
+          }
+        } 
+        else if (role === 'ruangan') {
+          const name = document.getElementById('form-field-name').value.trim().toUpperCase();
+          const capacity = Number(document.getElementById('form-field-capacity').value);
+
+          if (isEdit) {
+            const item = state.rooms.find(r => r.id === id);
+            item.name = name;
+            item.maxCapacity = capacity;
+            addActivityLog('UPDATE_ROOM', name);
+          } else {
+            state.rooms.push({ id: Date.now(), name, maxCapacity: capacity });
+            addActivityLog('CREATE_ROOM', name);
+          }
+        } 
+        else if (role === 'token-sesi') {
+          const roomSelect = document.getElementById('form-field-room');
+          const optRoom = roomSelect.options[roomSelect.selectedIndex];
+          const proctorSelect = document.getElementById('form-field-proctor');
+          const optProc = proctorSelect.options[proctorSelect.selectedIndex];
+          const start = document.getElementById('form-field-start').value;
+          const end = document.getElementById('form-field-end').value;
+          const description = document.getElementById('form-field-description').value.trim();
+
+          if (new Date(end) <= new Date(start)) throw new Error('Selesai aktif harus setelah mulai aktif.');
+
+          const token = 'SESS-' + Math.floor(1000 + Math.random() * 9000);
+
+          state.sessions.push({
+            id: Date.now(), token, room: optRoom.dataset.name, roomId: Number(roomSelect.value),
+            proctor: optProc ? optProc.dataset.name : '', proctorId: proctorSelect.value ? Number(proctorSelect.value) : '',
+            validFrom: start, validUntil: end, description, active: true
+          });
+          addActivityLog('CREATE_SESSION', token);
+        }
+
+        closeFormModal();
+        showToast('Entri data berhasil disimpan', 'success');
+        renderTabContent();
+      } catch (err) {
+        errEl.textContent = err.message;
+        errEl.classList.remove('hidden');
+      }
+    }
+
+    // ── LOGOUT DIALOG ──
+    function confirmLogout() {
+      if (confirm('Apakah Anda yakin ingin keluar dari sistem?')) {
+        alert('Simulasi Logout. Anda dialihkan ke halaman login.');
+        addActivityLog('LOGOUT', 'Sistem');
+      }
+    }
+
+    // Keyboard global listener (Ctrl+K for search)
+    document.addEventListener('keydown', (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault();
+        const searchInput = document.getElementById('global-search');
+        if (searchInput) searchInput.focus();
+      }
+      if (e.key === 'Escape') {
+        closeProctoringModal();
+        closeFormModal();
+        closeSettingsModal();
+        closeImportModal();
+        closeTypoModal();
+        const results = document.getElementById('search-results');
+        if (results) results.classList.add('hidden');
+        const notifDrop = document.getElementById('notifications-dropdown');
+        if (notifDrop) notifDrop.classList.add('hidden');
+      }
+    });
+
+    // Mobile sidebar toggle helper
+    function toggleMobileSidebar() {
+      const sidebar = document.querySelector('aside');
+      sidebar.classList.toggle('hidden');
+      sidebar.classList.toggle('flex');
+    }
+
+    // Load initial mockup routines on load
+    window.addEventListener('load', () => {
+      renderSidebar();
+      renderTabContent();
+      renderRightSidebarActivities();
+      loadNotificationDropdown();
+
+      // Trigger automatic metrics update ticks every 7 seconds
+      setInterval(() => {
+        if (state.activeTab === 'overview') {
+          // Subtle refresh indicators
+          refreshHealthStats();
+        }
+      }, 7000);
+    });
+  </script>
+</body>
+</html>

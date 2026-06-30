@@ -1,4 +1,9 @@
-// src/routes/index.js
+// backend_server/src/routes/index.js
+// ─────────────────────────────────────────────────────────────────────────────
+// PERUBAHAN dari versi sebelumnya:
+//   + Tambah route /admin/activity  (GET — ambil activity log, admin only)
+// ─────────────────────────────────────────────────────────────────────────────
+
 const router = require('express').Router();
 const { authenticate } = require('../middleware/auth');
 const { requireRole }  = require('../middleware/role');
@@ -34,6 +39,10 @@ router.use('/admin/question-banks',
   authenticate, requireRole('admin', 'teacher'),
   require('./admin/questionBanks.routes')
 );
+router.use('/v1/question-banks',
+  authenticate, requireRole('admin', 'teacher'),
+  require('./admin/questionBanks.routes.v1')
+);
 router.use('/admin/sessions',
   authenticate, requireRole('admin'),
   require('./admin/sessions.routes')
@@ -46,12 +55,12 @@ router.use('/admin/classes',
   authenticate, requireRole('admin'),
   require('./admin/classes.routes')
 );
-// ── Import siswa via Excel ────────────────────────────────────────────────────
+// Import siswa via Excel
 router.use('/admin/import',
   authenticate, requireRole('admin'),
   require('./admin/importSiswa.routes')
 );
-// ── Proktor ───────────────────────────────────────────────────────────────────
+// Proktor
 router.use('/admin/proctors',
   authenticate, requireRole('admin'),
   require('./admin/proctor.routes')
@@ -59,6 +68,12 @@ router.use('/admin/proctors',
 router.use('/proctor',
   authenticate, requireRole('proctor', 'admin'),
   require('./admin/proctor.routes')
+);
+
+// ── Activity Log (NEW) ────────────────────────────────────────────────────────
+router.use('/admin/activity',
+  authenticate, requireRole('admin'),
+  require('./admin/activity.routes')
 );
 
 module.exports = router;

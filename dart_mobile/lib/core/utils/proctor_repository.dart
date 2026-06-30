@@ -11,6 +11,7 @@ class ProctorExam {
   final String status;
   final String token;
   final String teacher;
+  final int totalQuestions;
 
   ProctorExam({
     required this.id,
@@ -20,6 +21,7 @@ class ProctorExam {
     required this.status,
     required this.token,
     required this.teacher,
+    required this.totalQuestions,
   });
 
   factory ProctorExam.fromJson(Map<String, dynamic> json) {
@@ -31,6 +33,7 @@ class ProctorExam {
       status: json['status'] as String? ?? '',
       token: json['token'] as String? ?? '',
       teacher: json['teacher'] as String? ?? '',
+      totalQuestions: json['totalQuestions'] as int? ?? 40,
     );
   }
 }
@@ -130,7 +133,7 @@ class ProctorRepository {
     final res = await http.get(
       Uri.parse('${ApiConfig.baseUrl}/proctor/my-exams'),
       headers: ApiConfig.headers(token),
-    );
+    ).timeout(const Duration(seconds: 10));
 
     final data = jsonDecode(res.body) as Map<String, dynamic>;
     if (res.statusCode == 200 && data['success'] == true) {
@@ -147,7 +150,7 @@ class ProctorRepository {
     final res = await http.get(
       Uri.parse('${ApiConfig.baseUrl}/proctor/exam/$examId/participants'),
       headers: ApiConfig.headers(token),
-    );
+    ).timeout(const Duration(seconds: 10));
 
     final data = jsonDecode(res.body) as Map<String, dynamic>;
     if (res.statusCode == 200 && data['success'] == true) {
@@ -172,7 +175,7 @@ class ProctorRepository {
       Uri.parse('${ApiConfig.baseUrl}/proctor/exam/$examId/reset/$userId'),
       headers: ApiConfig.headers(token),
       body: jsonEncode({}),
-    );
+    ).timeout(const Duration(seconds: 10));
 
     final data = jsonDecode(res.body) as Map<String, dynamic>;
     if (res.statusCode != 200 || data['success'] != true) {
@@ -188,7 +191,7 @@ class ProctorRepository {
       Uri.parse('${ApiConfig.baseUrl}/proctor/exam/$examId/reset-token'),
       headers: ApiConfig.headers(token),
       body: jsonEncode({}),
-    );
+    ).timeout(const Duration(seconds: 10));
 
     final data = jsonDecode(res.body) as Map<String, dynamic>;
     if (res.statusCode == 200 && data['success'] == true) {

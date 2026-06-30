@@ -2,6 +2,7 @@ const bcrypt = require('bcryptjs');
 const prisma = require('../../config/database');
 const { ok, created, notFound, badRequest } = require('../../utils/response');
 const { body, validationResult } = require('express-validator');
+const { logActivity, ACTIONS } = require('../../utils/activityLog');
 
 async function listUsers(req, res, next) {
   try {
@@ -13,7 +14,7 @@ async function listUsers(req, res, next) {
 
     const users = await prisma.user.findMany({
       where,
-      select: { id: true, name: true, nisn: true, class: true, classId: true, device: true, room: true, role: true, verified: true, createdAt: true },
+      select: { id: true, name: true, nisn: true, class: true, classId: true, device: true, room: true, role: true, verified: true, academicYear: true, createdAt: true },
       orderBy: { name: 'asc' },
     });
     return ok(res, users);
@@ -24,7 +25,7 @@ async function getUser(req, res, next) {
   try {
     const user = await prisma.user.findUnique({
       where: { id: +req.params.id },
-      select: { id: true, name: true, nisn: true, class: true, classId: true, device: true, room: true, role: true, verified: true, createdAt: true },
+      select: { id: true, name: true, nisn: true, class: true, classId: true, device: true, room: true, role: true, verified: true, academicYear: true, createdAt: true },
     });
     if (!user) return notFound(res);
     return ok(res, user);
@@ -36,7 +37,7 @@ async function createUser(req, res, next) {
     const errs = validationResult(req);
     if (!errs.isEmpty()) return badRequest(res, 'Validasi gagal.', errs.array());
 
-    const { name, nisn, password, class: kelas, class_id, roomId, role, verified } = req.body;
+    const { name, nisn, password, class: kelas, class_id, roomId, role, verified, academicYear } = req.body;
     const hashed = await bcrypt.hash(password, 12);
 
     let roomName = null;
@@ -50,10 +51,20 @@ async function createUser(req, res, next) {
         name, nisn, password: hashed,
         class: kelas, classId: class_id || null,
         roomId: roomId ? Number(roomId) : null, room: roomName,
-        role: role ?? 'student', verified: verified ?? false
+        role: role ?? 'student', verified: verified ?? false,
+        academicYear: academicYear || null
       },
-      select: { id: true, name: true, nisn: true, class: true, classId: true, room: true, roomId: true, role: true, verified: true },
+      select: { id: true, name: true, nisn: true, class: true, classId: true, room: true, roomId: true, role: true, verified: true, academicYear: true },
     });
+
+    await logActivity({
+      user: req.user,
+      action: ACTIONS.CREATE_USER,
+      targetType: 'user',
+      targetId: user.id,
+      targetLabel: `${user.name} (${user.role})`
+    });
+
     return created(res, user, 'Pengguna berhasil dibuat.');
   } catch (e) { next(e); }
 }
@@ -63,11 +74,12 @@ async function updateUser(req, res, next) {
     const errs = validationResult(req);
     if (!errs.isEmpty()) return badRequest(res, 'Validasi gagal.', errs.array());
 
-    const { name, class: kelas, class_id, roomId, role, verified, password, device } = req.body;
+    const { name, class: kelas, class_id, roomId, role, verified, password, device, academicYear } = req.body;
     const data = {};
     if (name !== undefined) data.name = name;
     if (kelas !== undefined) data.class = kelas;
     if (class_id !== undefined) data.classId = class_id || null;
+    if (academicYear !== undefined) data.academicYear = academicYear || null;
     if (roomId !== undefined) {
       data.roomId = roomId ? Number(roomId) : null;
       if (roomId) {
@@ -89,7 +101,7 @@ async function updateUser(req, res, next) {
     const user = await prisma.user.update({
       where: { id: +req.params.id },
       data,
-      select: { id: true, name: true, nisn: true, class: true, classId: true, room: true, roomId: true, role: true, verified: true },
+      select: { id: true, name: true, nisn: true, class: true, classId: true, room: true, roomId: true, role: true, verified: true, academicYear: true },
     });
 
     if (verified === true) {
@@ -120,13 +132,31 @@ async function updateUser(req, res, next) {
       io.to('room:admin').emit('admin-refresh', { tab: role === 'teacher' ? 'guru' : 'siswa' });
     }
 
+    await logActivity({
+      user: req.user,
+      action: ACTIONS.UPDATE_USER,
+      targetType: 'user',
+      targetId: user.id,
+      targetLabel: `${user.name} (${user.role})`
+    });
+
     return ok(res, user, 'Pengguna diperbarui.');
   } catch (e) { next(e); }
 }
 
 async function deleteUser(req, res, next) {
   try {
-    await prisma.user.delete({ where: { id: +req.params.id } });
+    const user = await prisma.user.findUnique({ where: { id: +req.params.id } });
+    if (user) {
+      await prisma.user.delete({ where: { id: +req.params.id } });
+      await logActivity({
+        user: req.user,
+        action: ACTIONS.DELETE_USER,
+        targetType: 'user',
+        targetId: user.id,
+        targetLabel: `${user.name} (${user.role})`
+      });
+    }
     return ok(res, null, 'Pengguna dihapus.');
   } catch (e) { next(e); }
 }
@@ -148,6 +178,7 @@ async function bulkImportStudents(req, res, next) {
           name: s.name, nisn: s.nisn,
           password: s.password ? await bcrypt.hash(s.password, 12) : defaultPassword,
           class: s.class, room: s.room, role: 'student', verified: true,
+          academicYear: s.academicYear || s.year || null,
         },
       });
       created++;

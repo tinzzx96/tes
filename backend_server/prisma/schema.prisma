@@ -76,6 +76,7 @@ model User {
   roomId    Int?     @map("room_id")    // FK ke master data room
   role      Role     @default(student)
   verified  Boolean  @default(false)
+  academicYear String?  @map("academic_year") @db.VarChar(20)
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
@@ -86,6 +87,8 @@ model User {
   examAttempts  ExamAttempt[]
   answers       Answer[]
   proctorSessions Session[]    @relation("ProctorSessions")
+  activityLogs    ActivityLog[] @relation("UserActivityLogs")
+
 
   @@map("users")
 }
@@ -199,6 +202,9 @@ model ExamAttempt {
   // PIN acak dari server yang dikirim ke pengawas via WebSocket (emitPinGenerated).
   // Diketik siswa di HP untuk membuka blokir. Dihapus (set null) setelah terpakai (one-time use).
   unlockPin          String? @db.VarChar(10) @map("unlock_pin")
+  
+  // Tracking nomor soal yang sedang dibuka/dikerjakan siswa (1-based index)
+  currentQuestion    Int     @default(1) @map("current_question")
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -257,6 +263,25 @@ model Session {
   proctor     User?     @relation("ProctorSessions", fields: [proctorId], references: [id], onDelete: SetNull)
 
   @@map("sessions")
+}
+
+model ActivityLog {
+  id          Int      @id @default(autoincrement())
+  userId      Int?     @map("user_id")         // null = sistem
+  actorName   String   @db.VarChar(255) @map("actor_name")
+  actorRole   String   @db.VarChar(20)  @map("actor_role")
+  action      String   @db.VarChar(100)        // "CREATE_EXAM" | "UPDATE_EXAM" | "DELETE_USER" dll
+  targetType  String?  @db.VarChar(50)  @map("target_type")  // "exam" | "user" | "session"
+  targetId    Int?     @map("target_id")
+  targetLabel String?  @db.VarChar(255) @map("target_label") // nama ujian/user yg dikenai aksi
+  meta        Json?                             // data tambahan opsional (JSON)
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  user        User?    @relation("UserActivityLogs", fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([createdAt(sort: Desc)])
+  @@index([userId])
+  @@map("activity_logs")
 }
 
 model Answer {

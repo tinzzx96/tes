@@ -35,7 +35,7 @@ class ExamTokenRepository {
         'examId': examId,
         'token': enteredToken.toUpperCase().trim(),
       }),
-    );
+    ).timeout(const Duration(seconds: 10));
 
     final data = jsonDecode(res.body) as Map<String, dynamic>;
 

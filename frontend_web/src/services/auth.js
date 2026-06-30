@@ -1,4 +1,4 @@
-import { getDeviceInfo } from '../utils/userAgent.js';
+import { getDeviceInfo, getWebDeviceId } from '../utils/userAgent.js';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
 
@@ -10,6 +10,9 @@ class AuthService {
 
     // ── Login (real API) ──────────────────────────────────────────────────────
     async login(nisn, password, sessionToken) {
+        const detectedDevice = getDeviceInfo().deviceLabel;
+        const webDeviceId = getWebDeviceId();
+
         // Step 1: Login → dapat accessToken
         const res = await fetch(`${API_BASE_URL}/auth/login`, {
             method: 'POST',
@@ -18,6 +21,8 @@ class AuthService {
                 nisn: nisn.trim(),
                 password,
                 sessionToken: (sessionToken || '').trim().toUpperCase(),
+                device_id: webDeviceId,
+                device_name: detectedDevice,
             }),
         });
 
@@ -37,7 +42,6 @@ class AuthService {
 
         const fullUser = meData.success ? meData.data : data.data.student;
 
-        const detectedDevice = getDeviceInfo().deviceLabel;
         const user = {
             id:       fullUser.id,
             name:     fullUser.name,

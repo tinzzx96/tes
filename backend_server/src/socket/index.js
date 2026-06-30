@@ -71,6 +71,27 @@ async function initSocket(httpServer) {
       }
     });
 
+    socket.on('student-question-changed', async ({ examAttemptId, currentQuestion }) => {
+      try {
+        const attempt = await prisma.examAttempt.update({
+          where: { id: Number(examAttemptId) },
+          data: { currentQuestion: Number(currentQuestion) },
+          include: { user: { select: { id: true, room: true, roomId: true } } },
+        });
+
+        if (attempt.user?.room || attempt.user?.roomId) {
+          emitStudentStatusChanged(attempt.user.room, {
+            studentId: `stu_${attempt.userId}`,
+            status: 'online',
+            progress: attempt.currentQuestion,
+            roomId: attempt.user.roomId,
+          });
+        }
+      } catch (err) {
+        logger.error('Error handling student-question-changed:', err);
+      }
+    });
+
     socket.on('disconnect', () => {
       logger.info(`WebSocket putus: userId=${socket.user?.id}`);
     });

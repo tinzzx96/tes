@@ -121,8 +121,13 @@ async function startExam(req, res, next) {
     if (!exam) return notFound(res, 'Ujian tidak ditemukan.');
     if (exam.status !== 'active') return forbidden(res, 'Ujian belum aktif.');
 
-    const ip       = req.headers['x-forwarded-for']?.split(',')[0] || req.socket.remoteAddress;
-    const deviceId = req.body.device_id || req.user.device;
+    const ip = req.headers['x-forwarded-for']?.split(',')[0] || req.socket.remoteAddress;
+    // ── First-Device Lock: ambil device_id dari header (sudah divalidasi oleh checkDeviceLock)
+    // Prioritas: x-device-id header → body.device_id → user.device
+    const incomingDeviceId = req.headers['x-device-id']?.trim()
+      || req.body?.device_id
+      || req.user.device
+      || null;
 
     const existing = await prisma.examAttempt.findUnique({
       where: { userId_examId: { userId, examId } },
@@ -132,14 +137,37 @@ async function startExam(req, res, next) {
       return badRequest(res, 'Ujian sudah dikumpulkan.');
     }
 
-    const attempt = existing
-      ? await prisma.examAttempt.update({
-          where: { id: existing.id },
-          data: { status: 'started', startedAt: existing.startedAt ?? new Date(), ipAddress: ip, deviceId },
-        })
-      : await prisma.examAttempt.create({
-          data: { userId, examId, status: 'started', startedAt: new Date(), ipAddress: ip, deviceId },
-        });
+    let attempt;
+    if (existing) {
+      // PENTING: jangan overwrite deviceId yang sudah terkunci!
+      // deviceId hanya bisa direset oleh proktor via /reset-device
+      const updateData = {
+        status: 'started',
+        startedAt: existing.startedAt ?? new Date(),
+        ipAddress: ip,
+      };
+      // Hanya set deviceId jika belum ada (first lock)
+      if (!existing.deviceId && incomingDeviceId) {
+        updateData.deviceId = incomingDeviceId;
+      }
+
+      attempt = await prisma.examAttempt.update({
+        where: { id: existing.id },
+        data: updateData,
+      });
+    } else {
+      // Buat attempt baru — langsung kunci device_id
+      attempt = await prisma.examAttempt.create({
+        data: {
+          userId,
+          examId,
+          status: 'started',
+          startedAt: new Date(),
+          ipAddress: ip,
+          deviceId: incomingDeviceId, // First-Device Lock!
+        },
+      });
+    }
 
     return ok(res, { attemptId: attempt.id, startedAt: attempt.startedAt });
   } catch (e) { next(e); }
@@ -165,7 +193,13 @@ async function getTimer(req, res, next) {
     const effectiveEnd  = Math.min(examEndMs, attemptEndMs);
     const remainingSec  = Math.max(0, Math.round((effectiveEnd - now) / 1000));
 
-    return ok(res, { remainingSeconds: remainingSec, endTime: new Date(effectiveEnd).toISOString() });
+    return ok(res, { 
+      remainingSeconds: remainingSec, 
+      endAt: new Date(effectiveEnd).toISOString(),
+      startedAt: attempt?.startedAt ? attempt.startedAt.toISOString() : new Date(now).toISOString(),
+      durationMinutes: exam.durationMinutes,
+      counterPelanggaran: attempt?.counterPelanggaran || 0
+    });
   } catch (e) { next(e); }
 }
 

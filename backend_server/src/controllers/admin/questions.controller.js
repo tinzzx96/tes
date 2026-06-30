@@ -75,13 +75,29 @@ async function updateQuestion(req, res, next) {
 
 async function deleteQuestion(req, res, next) {
   try {
-    const q = await prisma.question.findUnique({ where: { id: +req.params.id } });
+    const q = await prisma.question.findUnique({
+      where: { id: +req.params.id },
+      include: { options: true },
+    });
     if (!q) return notFound(res);
+
+    const uploadDir = path.resolve(process.env.UPLOAD_DIR || 'uploads/questions');
 
     // Hapus file gambar jika ada
     if (q.questionImage) {
-      const filePath = path.join(process.env.UPLOAD_DIR || 'uploads/questions', q.questionImage);
+      const filePath = path.join(uploadDir, q.questionImage);
       if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+    }
+
+    // Hapus file gambar opsi jika ada
+    for (const opt of q.options) {
+      if (opt.body && opt.body.includes('[IMAGE:')) {
+        const match = opt.body.match(/\[IMAGE:(.+?)\]/);
+        if (match) {
+          const filePath = path.join(uploadDir, match[1]);
+          if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+        }
+      }
     }
 
     await prisma.question.delete({ where: { id: +req.params.id } });
@@ -126,6 +142,15 @@ async function updateOption(req, res, next) {
 
 async function deleteOption(req, res, next) {
   try {
+    const opt = await prisma.option.findUnique({ where: { id: +req.params.id } });
+    if (opt && opt.body && opt.body.includes('[IMAGE:')) {
+      const match = opt.body.match(/\[IMAGE:(.+?)\]/);
+      if (match) {
+        const filePath = path.join(path.resolve(process.env.UPLOAD_DIR || 'uploads/questions'), match[1]);
+        if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+      }
+    }
+
     await prisma.option.delete({ where: { id: +req.params.id } });
     return ok(res, null, 'Opsi dihapus.');
   } catch (e) { next(e); }

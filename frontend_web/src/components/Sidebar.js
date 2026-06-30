@@ -1,6 +1,8 @@
+// frontend_web/src/components/Sidebar.js
 import { createElement } from '../utils/dom.js';
 import { authService } from '../services/auth.js';
 import { getInitials } from '../utils/helpers.js';
+import { createModal } from './Modal.js';
 
 /**
  * Sidebar navigation for staff dashboards (Admin, Teacher, Proctor).
@@ -9,103 +11,255 @@ import { getInitials } from '../utils/helpers.js';
  * roleLabel: text shown under the logo (e.g. "ADMIN SEKOLAH")
  */
 export function createSidebar(activeId, menuItems, roleLabel = '') {
-    const sidebar = createElement('aside', 'sidebar-desktop flex-col w-64 min-h-screen bg-sidebar-bg border-r border-divider flex-shrink-0');
+    const sidebar = createElement('aside',
+        'sidebar-desktop flex-col w-56 h-screen bg-sidebar-bg flex-shrink-0 flex flex-col'
+    );
+    sidebar.style.cssText = 'border-right: 1px solid #222222;';
 
-    // Logo / Brand
-    const brand = createElement('div', 'flex items-center gap-md px-lg py-lg border-b border-divider');
+    // ── Brand ─────────────────────────────────────────────────────────────────
+    const brand = createElement('div', 'flex items-center gap-3 px-5 py-5');
+    brand.style.cssText = 'border-bottom: 1px solid #222222;';
     brand.innerHTML = `
-        <img src="/logo-poncol.png" alt="Logo" class="h-9 w-auto">
-        <div>
-            <div class="font-barlow font-extrabold text-base tracking-title text-text-primary leading-none">EXAM-PONCOL</div>
-            ${roleLabel ? `<div class="text-label-caps text-accent-gold font-inter font-bold uppercase tracking-label mt-1">${roleLabel}</div>` : ''}
+        <img src="/logo-poncol.png" alt="Logo" class="h-7 w-auto flex-shrink-0">
+        <div class="min-w-0">
+            <div class="font-barlow font-extrabold text-sm tracking-widest text-text-primary leading-none">EXAM-PONCOL</div>
+            ${roleLabel ? `<div class="text-xs text-accent-gold font-inter font-semibold tracking-wider mt-1 uppercase opacity-80">${roleLabel}</div>` : ''}
         </div>
     `;
     sidebar.appendChild(brand);
 
-    // Menu
-    const menu = createElement('nav', 'flex-1 px-md py-lg flex flex-col gap-xs');
+    // ── Menu ──────────────────────────────────────────────────────────────────
+    const menu = createElement('nav', 'flex-1 px-3 py-4 flex flex-col gap-0.5 overflow-y-auto');
     menuItems.forEach(item => {
+        if (item.type === 'heading') {
+            const heading = createElement('div', 'text-[10px] font-bold text-text-muted uppercase tracking-widest px-3 mt-4 mb-2 font-inter select-none');
+            heading.style.cssText = 'color: #737373; font-size: 10px; font-weight: 700; letter-spacing: 0.1em;';
+            heading.textContent = item.label;
+            menu.appendChild(heading);
+            return;
+        }
+
         const isActive = activeId === item.id;
-        const menuItem = createElement(
-            'div',
-            `flex items-center gap-md px-md py-3 rounded-btn cursor-pointer transition-colors font-inter text-sidebar-label ${
+        const menuItem = createElement('div',
+            `flex items-center gap-3 px-3 py-2.5 rounded cursor-pointer font-inter text-sm font-medium transition-colors ${
                 isActive
-                    ? 'bg-sidebar-active text-text-primary border-l-4 border-primary'
-                    : 'text-text-secondary hover:bg-sidebar-hover hover:text-text-primary border-l-4 border-transparent'
+                    ? 'bg-sidebar-active text-text-primary'
+                    : 'text-text-secondary hover:bg-sidebar-hover hover:text-text-primary'
             }`
         );
+
+        if (isActive) {
+            menuItem.style.cssText = 'border-left: 2px solid #CC0000; padding-left: 10px;';
+        } else {
+            menuItem.style.cssText = 'border-left: 2px solid transparent; padding-left: 10px;';
+        }
+
         menuItem.innerHTML = `
-            <span class="material-icons text-xl ${isActive ? 'text-primary' : ''}">${item.icon}</span>
-            <span>${item.label}</span>
+            <span class="material-icons text-base flex-shrink-0 ${isActive ? 'text-primary' : 'text-text-muted'}">${item.icon}</span>
+            <span class="truncate">${item.label}</span>
         `;
         menuItem.addEventListener('click', () => {
             window.app.router.navigate(item.path);
         });
         menu.appendChild(menuItem);
     });
+
+    // Append logout button directly below menu items
+    const logoutItem = createElement('div',
+        'flex items-center gap-3 px-3 py-2.5 rounded cursor-pointer font-inter text-sm font-medium text-text-secondary hover:bg-sidebar-hover hover:text-primary transition-colors mt-4'
+    );
+    logoutItem.id = 'sidebar-logout-btn';
+    logoutItem.style.cssText = 'border-left: 2px solid transparent; padding-left: 10px;';
+    logoutItem.innerHTML = `
+        <span class="material-icons text-base flex-shrink-0 text-text-muted">logout</span>
+        <span class="truncate">Keluar</span>
+    `;
+    menu.appendChild(logoutItem);
     sidebar.appendChild(menu);
 
-    // Footer - user + logout
+    // ── Footer (Administrator User Card) ──────────────────────────────────────
     const user = authService.getCurrentUser() || { name: 'USER', nisn: '' };
-    const footer = createElement('div', 'border-t border-divider px-lg py-lg');
+    const footer = createElement('div', 'px-3 py-4');
+    footer.style.cssText = 'border-top: 1px solid #222222;';
     footer.innerHTML = `
-        <div class="flex items-center gap-sm mb-md">
-            <div class="w-9 h-9 bg-avatar-bg rounded-avatar flex items-center justify-center font-barlow font-bold text-sm text-avatar-text flex-shrink-0">
+        <div class="flex items-center gap-3 px-2.5 py-3">
+            <div class="w-10 h-10 bg-primary rounded flex items-center justify-center font-barlow font-bold text-sm text-white flex-shrink-0">
                 ${getInitials(user.name || 'U')}
             </div>
-            <div class="overflow-hidden">
-                <div class="font-inter font-bold text-sm text-text-primary truncate">${user.name}</div>
-                <div class="text-xs text-text-muted font-inter truncate">${user.role || ''}</div>
+            <div class="overflow-hidden flex-1 min-w-0">
+                <div class="font-inter font-bold text-sm text-text-primary truncate" style="font-size: 14px;">${user.name}</div>
+                <div class="text-xs text-text-muted font-inter capitalize mt-0.5" style="font-size: 11px;">${user.role || ''}</div>
             </div>
         </div>
-        <button class="w-full flex items-center justify-center gap-sm py-2 rounded-btn border border-divider text-text-secondary hover:text-primary hover:border-primary transition-colors font-inter text-sm font-bold" id="sidebar-logout-btn">
-            <span class="material-icons text-base">logout</span>
-            LOGOUT
-        </button>
     `;
     sidebar.appendChild(footer);
 
-    footer.querySelector('#sidebar-logout-btn').addEventListener('click', () => {
-        authService.logout();
-        window.app.router.navigate('/login');
+    sidebar.querySelector('#sidebar-logout-btn').addEventListener('click', () => {
+        createModal({
+            title: 'Konfirmasi Keluar',
+            bodyHtml: `
+                <div class="flex items-center gap-4">
+                    <span class="material-icons text-primary text-3xl">warning</span>
+                    <p class="font-inter text-sm text-text-secondary">
+                        Apakah Anda yakin ingin keluar dari sistem? Sesi Anda akan diakhiri.
+                    </p>
+                </div>
+            `,
+            footerButtons: [
+                {
+                    text: 'Batal',
+                    variant: 'secondary',
+                    onClick: (close) => close()
+                },
+                {
+                    text: 'Ya, Keluar',
+                    variant: 'primary',
+                    onClick: (close) => {
+                        close();
+                        authService.logout();
+                        window.app.router.navigate('/login');
+                    }
+                }
+            ]
+        });
     });
 
     return sidebar;
 }
 
 /**
- * Mobile top bar shown alongside sidebar on small screens, with a menu trigger.
- * Keeps the same header brand as student app for visual consistency.
+ * Mobile top bar for small screens.
  */
-export function createMobileTopBar(title, menuItems, activeId) {
-    const bar = createElement('div', 'mobile-topbar sticky top-0 z-50 bg-bg-primary border-b border-accent-gold');
+export function createMobileTopBar(activeId, menuItems, title = 'EXAM-PONCOL', showMenuButton = true) {
+    const bar = createElement('div',
+        'sidebar-mobile-bar flex items-center justify-between px-md py-3 bg-sidebar-bg sticky top-0 z-20'
+    );
+    bar.style.cssText = 'border-bottom: 1px solid #222222;';
+
     bar.innerHTML = `
-        <div class="flex items-center justify-between px-lg py-md">
-            <div class="flex items-center gap-md">
-                <img src="/logo-poncol.png" alt="Logo" class="h-8 w-auto">
-                <div class="font-barlow font-extrabold text-lg tracking-title text-text-primary">${title}</div>
-            </div>
-            <span class="material-icons text-text-primary cursor-pointer" id="mobile-menu-toggle">menu</span>
+        <div class="flex items-center gap-3">
+            <img src="/logo-poncol.png" alt="Logo" class="h-7 w-auto">
+            <span class="font-barlow font-extrabold text-sm tracking-widest text-text-primary">${title}</span>
         </div>
-        <div class="hidden flex-col border-t border-divider" id="mobile-menu-dropdown"></div>
+        ${showMenuButton ? `
+        <button id="mobile-menu-btn" class="p-1.5 rounded hover:bg-sidebar-hover transition-colors">
+            <span class="material-icons text-text-secondary text-xl">menu</span>
+        </button>
+        ` : ''}
     `;
 
-    const dropdown = bar.querySelector('#mobile-menu-dropdown');
-    menuItems.forEach(item => {
-        const isActive = activeId === item.id;
-        const row = createElement(
-            'div',
-            `flex items-center gap-md px-lg py-3 font-inter text-sm font-bold cursor-pointer ${isActive ? 'text-primary' : 'text-text-secondary'}`
-        );
-        row.innerHTML = `<span class="material-icons text-lg">${item.icon}</span> ${item.label}`;
-        row.addEventListener('click', () => window.app.router.navigate(item.path));
-        dropdown.appendChild(row);
-    });
+    if (showMenuButton) {
+        // Remove existing mobile menu elements first to avoid leaks
+        document.getElementById('mobile-menu-overlay')?.remove();
+        document.getElementById('mobile-menu-drawer')?.remove();
 
-    bar.querySelector('#mobile-menu-toggle').addEventListener('click', () => {
-        dropdown.classList.toggle('hidden');
-        dropdown.classList.toggle('flex');
-    });
+        // Drawer overlay
+        const overlay = createElement('div',
+            'fixed inset-0 z-40 bg-black bg-opacity-60 hidden'
+        );
+        overlay.id = 'mobile-menu-overlay';
+
+        const drawer = createElement('div',
+            'fixed top-0 left-0 h-full z-50 w-56 bg-sidebar-bg flex flex-col transform -translate-x-full transition-transform duration-200'
+        );
+        drawer.id = 'mobile-menu-drawer';
+        drawer.style.cssText = 'border-right: 1px solid #222222;';
+
+        // Drawer content
+        const drawerBrand = createElement('div', 'flex items-center gap-3 px-5 py-5');
+        drawerBrand.style.cssText = 'border-bottom: 1px solid #222222;';
+        drawerBrand.innerHTML = `
+            <img src="/logo-poncol.png" alt="Logo" class="h-7 w-auto">
+            <span class="font-barlow font-extrabold text-sm tracking-widest text-text-primary">EXAM-PONCOL</span>
+        `;
+        drawer.appendChild(drawerBrand);
+
+        const drawerMenu = createElement('nav', 'flex-1 px-3 py-4 flex flex-col gap-0.5 overflow-y-auto');
+        menuItems.forEach(item => {
+            if (item.type === 'heading') {
+                const heading = createElement('div', 'text-[10px] font-bold text-text-muted uppercase tracking-widest px-3 mt-4 mb-2 font-inter select-none');
+                heading.style.cssText = 'color: #737373; font-size: 10px; font-weight: 700; letter-spacing: 0.1em;';
+                heading.textContent = item.label;
+                drawerMenu.appendChild(heading);
+                return;
+            }
+
+            const isActive = activeId === item.id;
+            const mi = createElement('div',
+                `flex items-center gap-3 px-3 py-2.5 rounded cursor-pointer font-inter text-sm font-medium transition-colors ${
+                    isActive ? 'bg-sidebar-active text-text-primary' : 'text-text-secondary hover:bg-sidebar-hover hover:text-text-primary'
+                }`
+            );
+            mi.style.cssText = `border-left: 2px solid ${isActive ? '#CC0000' : 'transparent'}; padding-left: 10px;`;
+            mi.innerHTML = `
+                <span class="material-icons text-base flex-shrink-0 ${isActive ? 'text-primary' : 'text-text-muted'}">${item.icon}</span>
+                <span class="truncate">${item.label}</span>
+            `;
+            mi.addEventListener('click', () => {
+                closeDrawer();
+                window.app.router.navigate(item.path);
+            });
+            drawerMenu.appendChild(mi);
+        });
+
+        // Append mobile logout button below mobile menu items
+        const mobileLogoutItem = createElement('div',
+            'flex items-center gap-3 px-3 py-2.5 rounded cursor-pointer font-inter text-sm font-medium text-text-secondary hover:bg-sidebar-hover hover:text-primary transition-colors mt-4'
+        );
+        mobileLogoutItem.style.cssText = 'border-left: 2px solid transparent; padding-left: 10px;';
+        mobileLogoutItem.innerHTML = `
+            <span class="material-icons text-base flex-shrink-0 text-text-muted">logout</span>
+            <span class="truncate">Keluar</span>
+        `;
+        mobileLogoutItem.addEventListener('click', () => {
+            closeDrawer();
+            createModal({
+                title: 'Konfirmasi Keluar',
+                bodyHtml: `
+                    <div class="flex items-center gap-4">
+                        <span class="material-icons text-primary text-3xl">warning</span>
+                        <p class="font-inter text-sm text-text-secondary">
+                            Apakah Anda yakin ingin keluar dari sistem? Sesi Anda akan diakhiri.
+                        </p>
+                    </div>
+                `,
+                footerButtons: [
+                    {
+                        text: 'Batal',
+                        variant: 'secondary',
+                        onClick: (close) => close()
+                    },
+                    {
+                        text: 'Ya, Keluar',
+                        variant: 'primary',
+                        onClick: (close) => {
+                            close();
+                            authService.logout();
+                            window.app.router.navigate('/login');
+                        }
+                    }
+                ]
+            });
+        });
+        drawerMenu.appendChild(mobileLogoutItem);
+
+        drawer.appendChild(drawerMenu);
+
+        document.body.appendChild(overlay);
+        document.body.appendChild(drawer);
+
+        const openDrawer = () => {
+            overlay.classList.remove('hidden');
+            drawer.classList.remove('-translate-x-full');
+        };
+        const closeDrawer = () => {
+            overlay.classList.add('hidden');
+            drawer.classList.add('-translate-x-full');
+        };
+
+        bar.querySelector('#mobile-menu-btn').addEventListener('click', openDrawer);
+        overlay.addEventListener('click', closeDrawer);
+    }
 
     return bar;
 }

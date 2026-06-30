@@ -112,7 +112,7 @@ async function saveAnswer(req, res, next) {
           savedAt: serverSavedAt,
         },
       });
-    });
+    }, { timeout: 20000, maxWait: 10000 });
 
     const progressCount = await prisma.answer.count({
       where: { attemptId: attempt.id },
@@ -123,7 +123,7 @@ async function saveAnswer(req, res, next) {
       emitStudentStatusChanged(attempt.user.room, {
         studentId: `stu_${userId}`,
         status: 'online',
-        progress: progressCount,
+        progress: attempt.currentQuestion,
         roomId: attempt.user.roomId,
       });
     }

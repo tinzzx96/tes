@@ -41,10 +41,11 @@ class AnswerRepository {
       final attemptIdStr = await _storage.read(key: 'exam_attempt_id');
       if (attemptIdStr == null) return; // belum ada attempt aktif
 
+      final headers = await ApiConfig.headersWithDevice(token);
       await http.post(
         Uri.parse(
             '${ApiConfig.baseUrl}/exam-attempts/$attemptIdStr/answers'),
-        headers: ApiConfig.headers(token),
+        headers: headers,
         body: jsonEncode({
           'questionId': questionId,
           'selectedOptionIndex': selectedOptionIndex,
@@ -63,10 +64,11 @@ class AnswerRepository {
   /// Return ExamSubmitResult berisi score dan total soal.
   static Future<ExamSubmitResult> submitExam(int examId) async {
     final token = await AuthRepository.getToken();
+    final headers = await ApiConfig.headersWithDevice(token);
 
     final res = await http.post(
       Uri.parse('${ApiConfig.baseUrl}/exams/$examId/submit'),
-      headers: ApiConfig.headers(token),
+      headers: headers,
       body: jsonEncode({}),
     );
 

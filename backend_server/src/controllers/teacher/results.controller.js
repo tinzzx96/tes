@@ -30,6 +30,7 @@ async function getResults(req, res, next) {
       class: a.user.class,
       room: a.user.room,
       score: a.score,
+      status: a.status,
       counterPelanggaran: a.counterPelanggaran,
       finishedAt: a.finishedAt,
     }));

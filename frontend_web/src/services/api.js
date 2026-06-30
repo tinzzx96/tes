@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { authService } from './auth.js';
+import { getWebDeviceId } from '../utils/userAgent.js';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
 
@@ -8,11 +9,15 @@ const apiClient = axios.create({
     headers: { 'Content-Type': 'application/json' },
 });
 
-// ── Inject token ke semua request ─────────────────────────────────────────────
+// ── Inject token & x-device-id ke semua request ───────────────────────────────
 apiClient.interceptors.request.use(
     config => {
         const token = authService.getToken();
         if (token) config.headers.Authorization = `Bearer ${token}`;
+
+        // Selalu sertakan header x-device-id untuk verifikasi lock
+        config.headers['x-device-id'] = getWebDeviceId();
+
         return config;
     },
     error => Promise.reject(error)

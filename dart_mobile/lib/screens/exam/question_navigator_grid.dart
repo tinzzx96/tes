@@ -83,7 +83,9 @@ class _NavigatorBox extends StatelessWidget {
           borderRadius: BorderRadius.circular(AppRadius.badge),
           border: isActive
               ? Border.all(color: AppColors.primary, width: 2)
-              : null,
+              : (question.status == QuestionStatus.answered
+                  ? Border.all(color: AppColors.primary.withOpacity(0.8), width: 1.0)
+                  : null),
         ),
         alignment: Alignment.center,
         child: Text(

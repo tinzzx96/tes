@@ -32,7 +32,7 @@ app.use(cors({
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-device-id'],
 }));
 
 // ── Request parsing ───────────────────────────────────────────────────────────
@@ -46,7 +46,7 @@ if (process.env.NODE_ENV !== 'test') {
 }
 
 // ── Static: gambar soal ───────────────────────────────────────────────────────
-app.use('/uploads', express.static(path.join(__dirname, process.env.UPLOAD_DIR || 'uploads')));
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // ── Rate limiting global ──────────────────────────────────────────────────────
 app.use(globalLimiter);

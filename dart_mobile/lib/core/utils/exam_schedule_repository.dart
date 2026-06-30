@@ -23,7 +23,7 @@ class ExamScheduleRepository {
     final res = await http.get(
       Uri.parse('${ApiConfig.baseUrl}/exams'),
       headers: ApiConfig.headers(token),
-    );
+    ).timeout(const Duration(seconds: 10));
 
     final data = jsonDecode(res.body) as Map<String, dynamic>;
 

@@ -2,6 +2,7 @@
 const prisma = require('../../config/database');
 const { ok, created, notFound, badRequest } = require('../../utils/response');
 const { body, validationResult } = require('express-validator');
+const { logActivity, ACTIONS } = require('../../utils/activityLog');
 
 // ── Auto-seed grades jika belum ada ──────────────────────────────────────────
 const GRADE_SEEDS = [
@@ -62,6 +63,15 @@ async function createClass(req, res, next) {
       data: { name, gradeId: +grade_id, major: major ?? null },
       include: { grade: true },
     });
+
+    await logActivity({
+      user: req.user,
+      action: ACTIONS.CREATE_CLASS,
+      targetType: 'class',
+      targetId: cls.id,
+      targetLabel: `${cls.grade?.name || ''} ${cls.name}`,
+    });
+
     return created(res, cls, 'Kelas berhasil dibuat.');
   } catch (e) {
     if (e.code === 'P2002') return badRequest(res, 'Nama kelas sudah digunakan.');
@@ -85,6 +95,15 @@ async function updateClass(req, res, next) {
       data,
       include: { grade: true },
     });
+
+    await logActivity({
+      user: req.user,
+      action: ACTIONS.UPDATE_CLASS,
+      targetType: 'class',
+      targetId: cls.id,
+      targetLabel: `${cls.grade?.name || ''} ${cls.name}`,
+    });
+
     return ok(res, cls, 'Kelas diperbarui.');
   } catch (e) {
     if (e.code === 'P2025') return notFound(res);
@@ -94,7 +113,18 @@ async function updateClass(req, res, next) {
 
 async function deleteClass(req, res, next) {
   try {
-    await prisma.class.delete({ where: { id: +req.params.id } });
+    const classId = +req.params.id;
+    const cls = await prisma.class.findUnique({ where: { id: classId }, include: { grade: true } });
+    if (cls) {
+      await prisma.class.delete({ where: { id: classId } });
+      await logActivity({
+        user: req.user,
+        action: ACTIONS.DELETE_CLASS,
+        targetType: 'class',
+        targetId: classId,
+        targetLabel: `${cls.grade?.name || ''} ${cls.name}`,
+      });
+    }
     return ok(res, null, 'Kelas dihapus.');
   } catch (e) {
     if (e.code === 'P2025') return notFound(res);

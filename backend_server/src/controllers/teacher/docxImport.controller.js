@@ -22,15 +22,37 @@
 //   KUNCI: B
 // ════════════════════════════════════════════════════════════════════════════
 
-const mammoth = require('mammoth');
 const path    = require('path');
 const fs      = require('fs');
 const crypto  = require('crypto');
+const { Worker } = require('worker_threads');
+const sharp   = require('sharp');
 const prisma  = require('../../config/database');
 const { ok, badRequest, notFound, forbidden } = require('../../utils/response');
 
 // Folder simpan gambar soal
 const UPLOAD_DIR = path.resolve(process.env.UPLOAD_DIR || 'uploads/questions');
+
+function runParserWorker(buffer) {
+  return new Promise((resolve, reject) => {
+    const worker = new Worker(path.join(__dirname, '../../workers/docxParser.worker.js'), {
+      workerData: { buffer }
+    });
+    worker.on('message', (msg) => {
+      if (msg.success) {
+        resolve(msg);
+      } else {
+        reject(new Error(msg.error));
+      }
+    });
+    worker.on('error', reject);
+    worker.on('exit', (code) => {
+      if (code !== 0) {
+        reject(new Error(`Worker stopped with exit code ${code}`));
+      }
+    });
+  });
+}
 
 // ── Main handler ─────────────────────────────────────────────────────────────
 
@@ -53,15 +75,15 @@ async function importDocx(req, res, next) {
     // 3. Cek file ada
     if (!req.file) return badRequest(res, 'File DOCX wajib diupload.');
 
-    // 4. Parse DOCX
-    const { questions, meta, errors } = await parseDocx(req.file.buffer);
+    // 4. Parse DOCX using worker thread (PRD Bagian 45)
+    const { questions, meta, errors } = await runParserWorker(req.file.buffer);
 
     if (questions.length === 0) {
       return badRequest(res, 'Tidak ada soal yang berhasil diparsing. Periksa format file.', { errors });
     }
 
     // 5. Simpan ke DB dalam satu transaksi
-    const saved = await prisma.$transaction(async (tx) => {
+    const { results: saved, log } = await prisma.$transaction(async (tx) => {
       const results = [];
       let orderNum  = await tx.question.count({ where: { questionBankId: bankId } }) + 1;
 
@@ -72,8 +94,14 @@ async function importDocx(req, res, next) {
           const filename = `q_${bankId}_${Date.now()}_${crypto.randomBytes(4).toString('hex')}.webp`;
           const filepath = path.join(UPLOAD_DIR, filename);
           if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
-          // Simpan raw buffer (idealnya dikompresi dengan sharp, PRD Bagian 47.4)
-          fs.writeFileSync(filepath, q.imageBuffer);
+          
+          // Kompresi webp dengan lebar maksimal 800px dengan sharp (PRD Bagian 47.4)
+          const buf = Buffer.from(q.imageBuffer.data || q.imageBuffer);
+          await sharp(buf)
+            .resize({ width: 800, withoutEnlargement: true })
+            .toFormat('webp', { quality: 80 })
+            .toFile(filepath);
+
           questionImage = filename;
         }
 
@@ -92,10 +120,28 @@ async function importDocx(req, res, next) {
         // Buat options + tandai yang benar
         const correctIndex = q.correctIndex; // 0=a, 1=b, 2=c, 3=d
         for (let i = 0; i < q.options.length; i++) {
+          const opt = q.options[i];
+          let optBody = typeof opt === 'string' ? opt : opt.body;
+          const optImgBuf = typeof opt === 'string' ? null : opt.imageBuffer;
+
+          if (optImgBuf) {
+            const filename = `opt_${bankId}_${Date.now()}_${crypto.randomBytes(4).toString('hex')}.webp`;
+            const filepath = path.join(UPLOAD_DIR, filename);
+            if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+
+            const buf = Buffer.from(optImgBuf.data || optImgBuf);
+            await sharp(buf)
+              .resize({ width: 800, withoutEnlargement: true })
+              .toFormat('webp', { quality: 80 })
+              .toFile(filepath);
+
+            optBody = optBody ? `${optBody} [IMAGE:${filename}]` : `[IMAGE:${filename}]`;
+          }
+
           await tx.option.create({
             data: {
               questionId: question.id,
-              body:       q.options[i],
+              body:       optBody,
               isCorrect:  i === correctIndex,
               orderNum:   i + 1,
             },
@@ -104,8 +150,33 @@ async function importDocx(req, res, next) {
 
         results.push(question.id);
       }
-      return results;
+
+      const activityLog = await tx.activityLog.create({
+        data: {
+          userId:      userId,
+          actorName:   req.user?.name ?? 'Guru',
+          actorRole:   role,
+          action:      'IMPORT_QUESTIONS',
+          targetType:  'question_bank',
+          targetId:    bankId,
+          targetLabel: bank.name,
+          meta:        { questionCount: questions.length }
+        }
+      });
+
+      return { results, log: activityLog };
     });
+
+    if (log) {
+      try {
+        const { getIo } = require('../../socket');
+        const io = getIo();
+        if (io) {
+          io.to('room:admin').emit('new-activity', log);
+          io.to('room:admin').emit('global-activity-admin', log);
+        }
+      } catch (_) {}
+    }
 
     return ok(res, {
       imported:       saved.length,
@@ -120,119 +191,5 @@ async function importDocx(req, res, next) {
   }
 }
 
-// ── DOCX Parser ───────────────────────────────────────────────────────────────
-
-async function parseDocx(buffer) {
-  const meta   = {};
-  const errors = [];
-
-  // Extract teks + gambar via mammoth
-  const result = await mammoth.convertToHtml(
-    { buffer },
-    {
-      convertImage: mammoth.images.imgElement(async (image) => {
-        const imageBuffer = await image.read('base64');
-        // Simpan sementara di array untuk dipasangkan ke soal
-        return { src: `__IMG__${imageBuffer}__IMGEND__` };
-      }),
-    }
-  );
-
-  const rawText = htmlToText(result.value);
-  const lines   = rawText.split('\n').map(l => l.trim()).filter(Boolean);
-  const images  = extractImages(result.value);
-
-  // Parse header metadata
-  let i = 0;
-  while (i < lines.length) {
-    const line = lines[i];
-    if      (line.startsWith('MAPEL:'))     { meta.mapel    = line.replace('MAPEL:', '').trim(); i++; }
-    else if (line.startsWith('KELAS:'))     { meta.kelas    = line.replace('KELAS:', '').trim(); i++; }
-    else if (line.startsWith('BANK_SOAL:')){ meta.bankSoal = line.replace('BANK_SOAL:', '').trim(); i++; }
-    else break;
-  }
-
-  // Parse soal
-  const questions = [];
-  let imageIdx    = 0;
-
-  while (i < lines.length) {
-    const line = lines[i];
-
-    // Deteksi baris soal: dimulai angka + titik (1. 2. 10. dst)
-    const soalMatch = line.match(/^(\d+)\.\s+(.+)/);
-    if (!soalMatch) { i++; continue; }
-
-    const questionBody = soalMatch[2];
-    i++;
-
-    // Cek apakah baris berikutnya adalah gambar placeholder
-    let imageBuffer = null;
-    if (i < lines.length && lines[i].includes('[GAMBAR]')) {
-      imageBuffer = images[imageIdx++] ?? null;
-      i++;
-    }
-
-    // Parse opsi (a. b. c. d.)
-    const options = [];
-    while (i < lines.length) {
-      const optMatch = lines[i].match(/^([a-dA-D])\.\s+(.+)/);
-      if (!optMatch) break;
-      options.push(optMatch[2]);
-      i++;
-    }
-
-    // Parse KUNCI
-    let correctIndex = 0;
-    if (i < lines.length && lines[i].startsWith('KUNCI:')) {
-      const kunci = lines[i].replace('KUNCI:', '').trim().toLowerCase();
-      correctIndex = kunci.charCodeAt(0) - 'a'.charCodeAt(0);
-      i++;
-    } else {
-      errors.push(`Soal "${questionBody.substring(0, 30)}...": KUNCI tidak ditemukan, default ke A.`);
-    }
-
-    if (options.length < 2) {
-      errors.push(`Soal "${questionBody.substring(0, 30)}...": Kurang dari 2 opsi, dilewati.`);
-      continue;
-    }
-
-    if (correctIndex < 0 || correctIndex >= options.length) {
-      errors.push(`Soal "${questionBody.substring(0, 30)}...": Kunci tidak valid, default ke A.`);
-      correctIndex = 0;
-    }
-
-    questions.push({ body: questionBody, options, correctIndex, imageBuffer });
-  }
-
-  return { questions, meta, errors };
-}
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-function htmlToText(html) {
-  return html
-    .replace(/<br\s*\/?>/gi, '\n')
-    .replace(/<\/p>/gi, '\n')
-    .replace(/<\/li>/gi, '\n')
-    .replace(/<[^>]+>/g, '')
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&nbsp;/g, ' ')
-    .replace(/&#39;/g, "'")
-    .replace(/&quot;/g, '"');
-}
-
-function extractImages(html) {
-  const images  = [];
-  const matches = html.matchAll(/__IMG__([^_]+)__IMGEND__/g);
-  for (const m of matches) {
-    try {
-      images.push(Buffer.from(m[1], 'base64'));
-    } catch (_) {}
-  }
-  return images;
-}
-
 module.exports = { importDocx };
+

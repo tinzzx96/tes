@@ -1,3 +1,4 @@
+// frontend_web/src/pages/DashboardProctorPage.js
 import { BasePage } from './BasePage.js';
 import { createElement } from '../utils/dom.js';
 import { createSidebar, createMobileTopBar } from '../components/Sidebar.js';
@@ -11,6 +12,7 @@ import { api } from '../services/api.js';
 const MENU_ITEMS = [
     { id: 'monitoring', icon: 'monitor_heart', label: 'Monitoring Ruang', path: '/proctor' },
     { id: 'token',      icon: 'key',           label: 'Token Ujian',      path: '/proctor?tab=token' },
+    { id: 'pin',        icon: 'lock',          label: 'Lock PIN',         path: '/proctor?tab=pin' },
 ];
 
 const BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api').replace('/api', '');
@@ -19,24 +21,26 @@ export class DashboardProctorPage extends BasePage {
     constructor() {
         super();
         this.setTitle('Dashboard Pengawas');
-        this.activeTab      = new URLSearchParams(window.location.search).get('tab') || 'monitoring';
-        this._exams         = [];
-        this._examId        = null;
-        this._participants  = [];
-        this._totalQuestions= 40; // default — bisa di-override dari data ujian
-        this._socket        = null;
-        this._pollTimer     = null;
-        this._pinAlerts     = []; // antrian PIN yang belum dikonfirmasi
+        this.activeTab     = new URLSearchParams(window.location.search).get('tab') || 'monitoring';
+        this._exams        = [];
+        this._examId       = null;
+        this._participants = [];
+        this._socket       = null;
+        this._pollTimer    = null;
+        this.statsArea     = null;
+        this.tableArea     = null;
+        this.pinAlertArea  = null;
     }
 
     render() {
         this.container.className = 'min-h-screen bg-bg-primary flex';
         this.container.setAttribute('data-page', 'proctor-dashboard');
-        this.container.appendChild(createSidebar(this.activeTab, MENU_ITEMS, 'PENGAWAS'));
+        this.container.appendChild(createSidebar(this.activeTab, MENU_ITEMS, 'Pengawas'));
 
-        const main = createElement('div', 'flex-1 min-h-screen flex flex-col');
-        main.appendChild(createMobileTopBar('EXAM-PONCOL', MENU_ITEMS, this.activeTab));
-        this.contentArea = createElement('div', 'flex-1 px-lg md:px-xl py-lg md:py-xl');
+        const main = createElement('div', 'flex-1 min-h-screen flex flex-col min-w-0 md:pl-56');
+        main.appendChild(createMobileTopBar(this.activeTab, MENU_ITEMS, 'EXAM-PONCOL'));
+
+        this.contentArea = createElement('div', 'flex-1 p-6 md:p-8 max-w-6xl');
         main.appendChild(this.contentArea);
         this.container.appendChild(main);
 
@@ -44,206 +48,177 @@ export class DashboardProctorPage extends BasePage {
         return this.container;
     }
 
-    mounted() {
-        this._connectSocket();
-    }
+    mounted() { this._connectSocket(); }
 
     beforeUnmount() {
         this._stopPoll();
         if (this._socket) { this._socket.disconnect(); this._socket = null; }
     }
 
-    _renderTab() {
-        this.contentArea.innerHTML = '';
-        if (this.activeTab === 'token') this._tabToken();
-        else this._tabMonitoring();
-    }
-
-    _loading() {
-        const d = createElement('div', 'flex items-center gap-sm text-text-secondary py-xl');
-        d.innerHTML = `<span class="material-icons animate-spin text-lg">progress_activity</span>
-                       <span class="font-inter text-sm">Memuat data...</span>`;
-        return d;
-    }
-
-    _error(msg, retry) {
-        const d = createElement('div', 'py-xl text-center');
-        d.innerHTML = `<p class="text-primary font-inter text-sm mb-md">${msg}</p>`;
-        d.appendChild(createButton('Coba Lagi', { size: 'sm', icon: 'refresh', className: 'w-auto mx-auto', onClick: retry }));
-        return d;
-    }
-
-    // ── WebSocket ──────────────────────────────────────────────────────────────
     _connectSocket() {
         try {
             if (typeof io === 'undefined') return;
             const token = authService.getToken();
             this._socket = io(BASE_URL, { auth: { token } });
 
-            // Join room WebSocket sesuai room proktor
             const user = authService.getCurrentUser();
-            if (user?.room || user?.roomId) {
-                this._socket.emit('join-room', { roomName: user.room, roomId: user.roomId });
-            }
+            if (user?.room) this._socket.emit('join-room', { roomName: user.room });
 
-            // ── PIN alert dari siswa yang terblokir ───────────────────────────
+            this._socket.on('student-status-changed', (data) => {
+                const idx = this._participants.findIndex(p => p.userId === data.studentId);
+                if (idx !== -1) {
+                    this._participants[idx] = { ...this._participants[idx], ...data };
+                    if (this.activeTab === 'pin') {
+                        this._rerenderPinList();
+                    } else {
+                        this._rerenderTable();
+                    }
+                }
+            });
+
             this._socket.on('pin-generated', (data) => {
                 this._showPinAlert(data);
-                // Update status di tabel jika sedang ditampilkan
-                const p = this._participants.find(x => x.userId === `stu_${data.studentId}` || x.name === data.studentName);
-                if (p) { p.isBlocked = true; this._rerenderTable(); }
-            });
-
-            // ── Status siswa berubah (online/offline/progress) ────────────────
-            this._socket.on('student-status-changed', ({ studentId, status, progress, isBlocked, counterPelanggaran }) => {
-                const p = this._participants.find(x => x.userId === studentId);
-                if (p) {
-                    if (status !== undefined) p.status = status;
-                    if (progress !== undefined) p.progress = progress;
-                    if (isBlocked !== undefined) p.isBlocked = isBlocked;
-                    if (counterPelanggaran !== undefined) p.counterPelanggaran = counterPelanggaran;
-                    this._rerenderTable();
+                const studentIdStr = data.studentId?.toString() || '';
+                const idx = this._participants.findIndex(p => 
+                    p.userId === studentIdStr || 
+                    p.userId === `stu_${studentIdStr}` || 
+                    p.name === data.studentName
+                );
+                if (idx !== -1) {
+                    this._participants[idx].isBlocked = true;
+                    this._participants[idx].unlockPin = data.pin;
+                    if (this.activeTab === 'pin') {
+                        this._rerenderPinList();
+                    } else {
+                        this._rerenderTable();
+                    }
+                } else {
+                    this._fetchParticipants();
                 }
             });
 
-            // ── Status ujian berubah / token direset ────────────────────────
             this._socket.on('exam-status-changed', (data) => {
-                if (this.activeTab === 'token') {
-                    this._tabToken();
-                } else if (this.activeTab === 'monitoring' && this._examId && Number(data?.examId) === this._examId) {
-                    this._renderTab();
-                }
+                if (this.activeTab === 'token' || this.activeTab === 'pin') this._renderTab();
+                else if (this.activeTab === 'monitoring' && this._examId && Number(data?.examId) === this._examId) this._renderTab();
             });
-        } catch (_) {
-            // Socket.io tidak tersedia — fallback ke polling
-        }
+        } catch (_) {}
     }
 
-    // ── PIN Alert — muncul di area khusus, tidak modal (agar tidak interrupt) ──
-    _showPinAlert(data) {
-        const pinArea = this.contentArea.querySelector('#pin-alerts-area');
-        if (!pinArea) return;
-
-        const now = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
-        const alert = createElement('div',
-            'flex items-start justify-between bg-bg-surface border-l-4 border-primary rounded-r-card p-md mb-md animate-fade-in');
-        alert.innerHTML = `
-            <div class="flex-1">
-                <div class="flex items-center gap-sm mb-xs">
-                    <span class="material-icons text-primary text-base">lock</span>
-                    <p class="font-inter font-bold text-text-primary text-sm">${data.studentName}</p>
-                    <span class="text-xs text-text-muted font-inter">${data.subjectName} · ${now}</span>
-                </div>
-                <p class="text-xs text-text-muted font-inter mb-sm">Siswa terblokir. Berikan PIN ini:</p>
-                <div class="flex items-center gap-md">
-                    <span class="font-mono font-extrabold text-3xl text-accent-gold tracking-widest">${data.pin}</span>
-                    <button class="copy-pin flex items-center gap-xs text-xs font-inter text-text-muted hover:text-text-primary transition-colors"
-                            data-pin="${data.pin}">
-                        <span class="material-icons text-base">content_copy</span> Salin
-                    </button>
-                </div>
-                <p class="text-xs text-text-muted font-inter mt-xs">Pastikan PIN ini diberikan ke <strong>${data.studentName}</strong>, bukan siswa lain.</p>
-            </div>
-            <button class="dismiss-pin material-icons text-text-muted hover:text-primary text-xl ml-md flex-shrink-0">close</button>`;
-
-        alert.querySelector('.copy-pin').onclick = (e) => {
-            navigator.clipboard?.writeText(e.currentTarget.dataset.pin);
-            e.currentTarget.innerHTML = '<span class="material-icons text-base text-online">check</span> Disalin';
-            setTimeout(() => { e.currentTarget.innerHTML = '<span class="material-icons text-base">content_copy</span> Salin'; }, 2000);
-        };
-        alert.querySelector('.dismiss-pin').onclick = () => alert.remove();
-
-        pinArea.prepend(alert);
+    _renderTab() {
+        this.contentArea.innerHTML = '';
+        this.statsArea    = null;
+        this.tableArea    = null;
+        this.pinAlertArea = null;
+        if (this.activeTab === 'token') this._tabToken();
+        else if (this.activeTab === 'pin') this._tabPin();
+        else this._tabMonitoring();
     }
 
-    // ── Tab Monitoring ─────────────────────────────────────────────────────────
+    _loading() {
+        const d = createElement('div', 'flex items-center gap-2 text-text-muted py-8');
+        d.innerHTML = `<span class="material-icons animate-spin text-base">progress_activity</span>
+                       <span class="font-inter text-sm">Memuat data...</span>`;
+        return d;
+    }
+
+    _error(msg, retry) {
+        const d = createElement('div', 'py-8 text-center');
+        d.innerHTML = `<p class="text-primary font-inter text-sm mb-4">${msg}</p>`;
+        d.appendChild(createButton('Coba Lagi', { size: 'sm', icon: 'refresh', className: 'w-auto mx-auto', onClick: retry }));
+        return d;
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // ── MONITORING ───────────────────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────────────────
+
     async _tabMonitoring() {
-        const user = authService.getCurrentUser();
-        const proctorRoom = user?.room;
-
+        this.contentArea.innerHTML = '';
         // Header
-        const header = createElement('div', 'flex flex-wrap items-start justify-between gap-md mb-lg');
-        const leftHead = createElement('div', '');
-        leftHead.innerHTML = `
-            <h1 class="font-barlow font-extrabold text-page-title text-text-primary mb-xs">MONITORING RUANG</h1>
-            <div class="flex items-center gap-sm">
-                <span class="material-icons text-accent-gold text-base">meeting_room</span>
-                <p class="font-inter text-text-secondary text-sm">
-                    ${proctorRoom
-                        ? `Kamu bertugas di <span class="font-bold text-accent-gold">${proctorRoom}</span>`
-                        : '<span class="text-primary">Ruang belum diset — hubungi Admin</span>'}
-                </p>
-            </div>`;
-        header.appendChild(leftHead);
+        const header = createElement('div', 'flex items-start justify-between mb-6');
+        header.innerHTML = `
+            <div>
+                <h1 class="font-barlow font-extrabold text-2xl text-text-primary leading-none mb-1">Monitoring Ruang</h1>
+                <p class="font-inter text-text-muted text-sm">Pantau peserta ujian secara real-time.</p>
+            </div>
+            <div class="flex items-center gap-2 flex-shrink-0">
+                <div class="w-2 h-2 rounded-full bg-online animate-pulse"></div>
+                <span class="font-inter text-xs text-text-muted">Live</span>
+            </div>
+        `;
         this.contentArea.appendChild(header);
 
-        if (!proctorRoom) {
-            this.contentArea.appendChild(this._error('Kamu belum ditugaskan ke ruang manapun. Hubungi Admin untuk mengatur ruang.', () => {}));
-            return;
-        }
+        // PIN Alert area (for blocked students)
+        this.pinAlertArea = createElement('div', 'mb-4');
+        this.pinAlertArea.id = 'pin-alerts-area';
+        this.contentArea.appendChild(this.pinAlertArea);
 
-        // PIN alerts area — di atas segalanya
-        const pinArea = createElement('div', 'mb-lg');
-        pinArea.id = 'pin-alerts-area';
-        this.contentArea.appendChild(pinArea);
-
-        // Picker ujian — sudah difilter backend by room proktor
-        const pickWrap = createElement('div', 'mb-lg max-w-sm');
-        pickWrap.innerHTML = `<label class="block font-inter font-bold text-input-label text-text-primary mb-sm uppercase tracking-label">Pilih Ujian di ${proctorRoom}</label>`;
-        const select = createElement('select', 'w-full px-md py-3 bg-bg-primary border border-gray-600 rounded-input text-text-primary font-inter');
-        select.innerHTML = '<option value="">-- Pilih ujian --</option>';
-        pickWrap.appendChild(select);
-        this.contentArea.appendChild(pickWrap);
+        // Exam selector row
+        const selectorRow = createElement('div', 'flex items-center gap-3 mb-4');
+        selectorRow.innerHTML = `
+            <label class="font-inter text-xs font-semibold text-text-muted uppercase tracking-wider flex-shrink-0">Pilih Ujian</label>
+            <select id="proctor-exam-sel" class="flex-1 bg-bg-surface border border-divider rounded p-2.5 font-inter text-sm text-text-primary focus:border-primary outline-none max-w-xs">
+                <option value="">Memuat daftar ujian...</option>
+            </select>
+            <button id="refresh-btn" class="flex items-center gap-1.5 px-3 py-2 rounded font-inter text-xs text-text-muted hover:text-text-primary hover:bg-bg-surface transition-colors border border-divider">
+                <span class="material-icons text-sm">refresh</span>
+                Refresh
+            </button>
+        `;
+        this.contentArea.appendChild(selectorRow);
 
         // Stats row
-        this.statsArea = createElement('div', 'grid grid-cols-2 sm:grid-cols-4 gap-md mb-lg');
+        this.statsArea = createElement('div', 'grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4');
         this.contentArea.appendChild(this.statsArea);
-
-        // Live indicator
-        const liveNote = createElement('div', 'flex items-center gap-xs text-xs text-text-muted font-inter mb-md');
-        liveNote.innerHTML = `<span class="w-2 h-2 rounded-full bg-online animate-pulse inline-block"></span>
-                              Status diperbarui otomatis setiap 30 detik`;
-        this.contentArea.appendChild(liveNote);
 
         // Table area
         this.tableArea = createElement('div', '');
         this.contentArea.appendChild(this.tableArea);
+        this.tableArea.appendChild(this._loading());
 
-        // Load ujian di ruang ini
+        // Close exam button area
+        this._closeExamArea = createElement('div', 'mt-4');
+        this.contentArea.appendChild(this._closeExamArea);
+
+        // Load exams
         try {
             const res = await api.get('/proctor/my-exams');
             this._exams = res.data?.data ?? [];
-            this._exams.forEach(e => {
-                const opt = document.createElement('option');
-                opt.value = e.id;
-                opt.textContent = `${e.title} — ${e.subject} (${e.status})`;
-                select.appendChild(opt);
-            });
-        } catch (_) {
-            select.innerHTML = '<option value="">Gagal memuat ujian</option>';
-        }
 
-        select.onchange = () => {
-            this._examId = Number(select.value) || null;
-            this._stopPoll();
-            this.statsArea.innerHTML = '';
-            this.tableArea.innerHTML = '';
-            if (this._examId) {
-                // Tambah tombol Tutup Ujian jika ujian aktif
-                const exam = this._exams.find(e => e.id === this._examId);
-                const existingBtn = header.querySelector('.btn-close-exam');
-                if (existingBtn) existingBtn.remove();
-                if (exam?.status === 'active') {
-                    const closeBtn = createButton('TUTUP UJIAN', {
-                        size: 'sm', icon: 'lock', className: 'w-auto btn-close-exam',
-                        onClick: () => this._confirmClose(exam),
-                    });
-                    header.appendChild(closeBtn);
-                }
+            const sel = selectorRow.querySelector('#proctor-exam-sel');
+            sel.innerHTML = this._exams.map(e => `<option value="${e.id}">${e.title} (${e.subject})${e.status === 'active' ? ' ● (Aktif)' : ''}</option>`).join('');
+
+            sel.onchange = () => {
+                this._stopPoll();
+                this._examId = Number(sel.value) || null;
+                this.statsArea.innerHTML = '';
                 this._fetchParticipants();
                 this._startPoll();
+            };
+
+            selectorRow.querySelector('#refresh-btn').onclick = (e) => this._handleManualRefresh(e.currentTarget);
+
+            // Auto-select active exam
+            const active = this._exams.find(e => e.status === 'active') || this._exams[0];
+            if (active) {
+                sel.value     = active.id;
+                this._examId  = active.id;
+                this._fetchParticipants();
+                this._startPoll();
+            } else {
+                sel.innerHTML = `<option value="">Tidak ada ujian aktif</option>`;
+                this.tableArea.innerHTML = '';
+                this.tableArea.innerHTML = `
+                    <div class="py-12 text-center">
+                        <span class="material-icons text-text-muted text-3xl block mb-3">event_busy</span>
+                        <p class="font-inter text-sm text-text-muted">Tidak ada ujian yang ditugaskan di ruangan ini.</p>
+                    </div>
+                `;
             }
-        };
+        } catch (e) {
+            this.tableArea.innerHTML = '';
+            this.tableArea.appendChild(this._error('Gagal memuat daftar ujian.', () => this._renderTab()));
+        }
     }
 
     async _fetchParticipants() {
@@ -252,78 +227,112 @@ export class DashboardProctorPage extends BasePage {
             const res = await api.get(`/proctor/exam/${this._examId}/participants`);
             const d   = res.data?.data ?? {};
             this._participants = d.participants ?? [];
-            if (d.exam) this._totalQuestions = d.exam.durationMinutes ?? 40; // fallback
-            this._rerenderTable();
+            if (this.activeTab === 'pin') {
+                this._rerenderPinList();
+            } else {
+                this._rerenderTable();
+            }
+            this._rerenderCloseBtn(d.exam);
         } catch (e) {
             if (this.tableArea) {
                 this.tableArea.innerHTML = '';
-                this.tableArea.appendChild(this._error(
-                    e.response?.data?.message || 'Gagal memuat peserta.',
-                    () => this._fetchParticipants()
-                ));
+                this.tableArea.appendChild(this._error('Gagal memuat peserta.', () => this._fetchParticipants()));
             }
+        }
+    }
+
+    async _handleManualRefresh(btn) {
+        if (!btn) return;
+        const origContent = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = `<span class="material-icons text-sm animate-spin">progress_activity</span> Memuat...`;
+
+        try {
+            const res = await api.get('/proctor/my-exams');
+            this._exams = res.data?.data ?? [];
+
+            const sel = document.getElementById('proctor-exam-sel');
+            if (sel) {
+                const currentVal = sel.value;
+                sel.innerHTML = this._exams.map(e => `<option value="${e.id}">${e.title} (${e.subject})${e.status === 'active' ? ' ● (Aktif)' : ''}</option>`).join('');
+                if (this._exams.some(e => e.id === Number(currentVal))) {
+                    sel.value = currentVal;
+                    this._examId = Number(currentVal);
+                } else {
+                    const active = this._exams.find(e => e.status === 'active') || this._exams[0];
+                    if (active) {
+                        sel.value = active.id;
+                        this._examId = active.id;
+                    } else {
+                        sel.innerHTML = `<option value="">Tidak ada ujian aktif</option>`;
+                        this._examId = null;
+                    }
+                }
+            }
+
+            await this._fetchParticipants();
+        } catch (err) {
+            // Silently ignore or fallback
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = origContent;
         }
     }
 
     _rerenderTable() {
         const p = this._participants;
+        const exam = this._exams.find(e => e.id === this._examId);
+        const totalQ = exam?.totalQuestions || 40;
 
-        // Stats
+        // Update stats
         if (this.statsArea) {
             this.statsArea.innerHTML = '';
-            this.statsArea.appendChild(createStatCard({ icon: 'wifi',        label: 'Online',      value: p.filter(x => x.status === 'online').length,        accent: 'online' }));
-            this.statsArea.appendChild(createStatCard({ icon: 'check_circle',label: 'Submit',      value: p.filter(x => x.status === 'submitted').length,     accent: 'primary' }));
-            this.statsArea.appendChild(createStatCard({ icon: 'wifi_off',    label: 'Offline',     value: p.filter(x => x.status === 'offline').length,       accent: 'muted' }));
-            this.statsArea.appendChild(createStatCard({ icon: 'lock',        label: 'Terblokir',   value: p.filter(x => x.isBlocked).length,                  accent: 'gold' }));
+            this.statsArea.appendChild(createStatCard({ icon: 'wifi',        label: 'Online',    value: p.filter(x => x.status === 'online').length,    accent: 'online' }));
+            this.statsArea.appendChild(createStatCard({ icon: 'check_circle',label: 'Submit',    value: p.filter(x => x.status === 'submitted').length,  accent: 'primary' }));
+            this.statsArea.appendChild(createStatCard({ icon: 'wifi_off',    label: 'Offline',   value: p.filter(x => x.status === 'offline').length,    accent: 'muted' }));
+            this.statsArea.appendChild(createStatCard({ icon: 'lock',        label: 'Terblokir', value: p.filter(x => x.isBlocked).length,               accent: 'gold' }));
         }
 
         if (!this.tableArea) return;
         this.tableArea.innerHTML = '';
 
-        const exam = this._exams.find(e => e.id === this._examId);
-        const totalQ = exam?.totalQuestions || 40;
-
         const cols = [
-            { key: 'name',   label: 'Nama Siswa' },
-            { key: 'class',  label: 'Kelas' },
-            // Progress bar real-time
-            { key: 'progress', label: 'Progress Soal', render: r => {
-                const pct = Math.min(100, Math.round((r.progress / totalQ) * 100));
-                const color = r.status === 'submitted' ? 'bg-online'
-                            : r.status === 'offline'   ? 'bg-gray-400'
-                            : 'bg-primary';
-                return `<div class="flex items-center gap-sm min-w-32">
-                    <div class="flex-1 h-1.5 bg-gray-700 rounded-full overflow-hidden">
-                        <div class="${color} h-full transition-all duration-500" style="width:${pct}%"></div>
+            { key: 'name',  label: 'Nama Siswa', render: r => `
+                <div class="flex items-center gap-2">
+                    <div class="w-1.5 h-1.5 rounded-full flex-shrink-0 ${
+                        r.status === 'online'    ? 'bg-online' :
+                        r.status === 'submitted' ? 'bg-primary' :
+                        r.status === 'offline'   ? 'bg-text-muted' : 'bg-accent-gold'
+                    }"></div>
+                    <span class="font-inter text-sm font-medium text-text-primary">${r.name}</span>
+                    ${r.isBlocked ? '<span class="material-icons text-primary text-xs" title="Terblokir">lock</span>' : ''}
+                </div>` },
+            { key: 'class', label: 'Kelas', render: r => `<span class="text-text-muted text-sm">${r.className || '-'}</span>` },
+            { key: 'progress', label: 'Progress', render: r => {
+                const pct  = Math.min(100, Math.round((r.progress / totalQ) * 100));
+                const color = r.status === 'submitted' ? 'bg-online' : r.status === 'offline' ? 'bg-text-muted' : 'bg-primary';
+                return `
+                    <div class="flex items-center gap-2 min-w-24">
+                        <div class="flex-1 h-1.5 bg-bg-primary rounded-full overflow-hidden" style="min-width:64px">
+                            <div class="${color} h-full rounded-full transition-all" style="width:${pct}%"></div>
+                        </div>
+                        <span class="font-mono text-xs text-text-muted flex-shrink-0">${r.progress}/${totalQ}</span>
                     </div>
-                    <span class="text-xs text-text-muted font-mono whitespace-nowrap">${r.progress}/${totalQ}</span>
-                </div>`;
+                `;
             }},
-            // Status badge
-            { key: 'status', label: 'Session', render: r => {
-                const map = {
-                    submitted:    { label: 'Submit',        cls: 'bg-online bg-opacity-20 text-online border-online' },
-                    online:       { label: 'Active',        cls: 'bg-primary bg-opacity-20 text-primary border-primary' },
-                    offline:      { label: 'Offline',       cls: 'bg-gray-600 bg-opacity-40 text-gray-300 border-gray-500' },
-                    not_logged_in:{ label: 'Belum Login',   cls: 'bg-gray-800 text-text-muted border-gray-700' },
-                };
-                const s = map[r.status] || map.not_logged_in;
-                return `<span class="inline-flex items-center px-sm py-1 rounded-full border text-xs font-inter font-bold ${s.cls}">${s.label}</span>`;
-            }},
-            // Pelanggaran + blokir
-            { key: 'security', label: 'Keamanan', render: r => {
-                if (r.isBlocked) return `<span class="flex items-center gap-xs text-primary text-xs font-bold">
-                    <span class="material-icons text-sm">lock</span>TERBLOKIR (${r.counterPelanggaran}x)</span>`;
-                if (r.counterPelanggaran > 0) return `<span class="text-accent-gold text-xs font-bold">${r.counterPelanggaran}x pelanggaran</span>`;
-                return '<span class="text-text-muted text-xs">-</span>';
-            }},
-            { key: 'lastSeen', label: 'Terakhir Aktif', render: r =>
-                r.lastSeen ? new Date(r.lastSeen).toLocaleTimeString('id-ID') : '-' },
-            { key: 'actions', label: 'Aksi', render: r => `
-                <div data-uid="${r.userId}">
-                    <button class="p-reset text-xs font-inter font-bold text-accent-gold hover:text-primary transition-colors flex items-center gap-xs
-                        ${r.status === 'not_logged_in' ? 'opacity-30 pointer-events-none' : ''}">
-                        <span class="material-icons text-base">restart_alt</span>Reset
+            { key: 'counterPelanggaran', label: 'Pelanggaran', render: r => r.counterPelanggaran > 0
+                ? `<span class="font-bold text-primary text-sm">${r.counterPelanggaran}x</span>`
+                : `<span class="text-text-muted text-sm">—</span>` },
+            { key: 'status', label: 'Status', render: r => statusPill(r.status) },
+            { key: 'actions', label: '', render: r => `
+                <div class="flex gap-1.5" data-uid="${r.userId}">
+                    <button class="p-reset flex items-center gap-1 px-2 py-1 rounded font-inter text-xs text-text-muted hover:text-text-primary hover:bg-bg-surface transition-colors border border-divider ${r.status === 'submitted' || r.status === 'waiting' ? 'opacity-30 pointer-events-none' : ''}">
+                        <span class="material-icons text-xs">restart_alt</span>
+                        Reset
+                    </button>
+                    <button class="p-reset-device flex items-center gap-1 px-2 py-1 rounded font-inter text-xs text-text-muted hover:text-primary hover:bg-bg-surface transition-colors border border-divider" title="Hapus kunci perangkat">
+                        <span class="material-icons text-xs">phonelink_erase</span>
+                        Device
                     </button>
                 </div>` },
         ];
@@ -332,8 +341,51 @@ export class DashboardProctorPage extends BasePage {
 
         this.tableArea.querySelectorAll('[data-uid]').forEach(el => {
             const participant = p.find(x => x.userId === el.dataset.uid);
-            el.querySelector('.p-reset')?.addEventListener('click', () => this._confirmReset(participant));
+            if (participant) {
+                el.querySelector('.p-reset')?.addEventListener('click', () => this._confirmReset(participant));
+                el.querySelector('.p-reset-device')?.addEventListener('click', () => this._confirmResetDevice(participant));
+            }
         });
+    }
+
+    _rerenderCloseBtn(exam) {
+        if (!this._closeExamArea || !exam) return;
+        this._closeExamArea.innerHTML = '';
+        if (exam.status === 'active') {
+            const btn = createButton('Tutup Ujian', {
+                size: 'sm', icon: 'stop_circle', variant: 'secondary',
+                className: 'w-auto border-primary text-primary hover:bg-primary hover:text-white',
+                onClick: () => this._confirmClose(exam),
+            });
+            this._closeExamArea.appendChild(btn);
+        }
+    }
+
+    _showPinAlert(data) {
+        if (!this.pinAlertArea) return;
+        const now   = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+        const alert = createElement('div', 'flex items-start justify-between rounded-lg p-4 mb-2');
+        alert.style.cssText = 'background: #2A1010; border: 1px solid #CC0000; border-left: 3px solid #CC0000;';
+        alert.innerHTML = `
+            <div class="flex items-start gap-3 flex-1">
+                <span class="material-icons text-primary text-base flex-shrink-0 mt-0.5">lock</span>
+                <div class="min-w-0">
+                    <div class="flex items-center gap-2 mb-1">
+                        <span class="font-inter font-bold text-text-primary text-sm">${data.studentName}</span>
+                        <span class="font-inter text-xs text-text-muted">${data.subjectName || ''} · ${now}</span>
+                    </div>
+                    <p class="font-inter text-xs text-text-muted mb-2">Siswa terblokir. Minta PIN untuk membuka kunci.</p>
+                    <div class="flex items-center gap-2">
+                        <span class="font-inter text-xs text-text-muted">PIN:</span>
+                        <span class="font-mono font-bold text-accent-gold text-lg tracking-widest">${data.unlockPin || '------'}</span>
+                    </div>
+                </div>
+            </div>
+            <button class="dismiss-pin material-icons text-text-muted hover:text-text-primary flex-shrink-0 ml-3">close</button>
+        `;
+        alert.querySelector('.dismiss-pin').onclick = () => alert.remove();
+        this.pinAlertArea.prepend(alert);
+        setTimeout(() => { if (alert.parentNode) alert.remove(); }, 120_000);
     }
 
     _startPoll() { this._pollTimer = setInterval(() => this._fetchParticipants(), 30_000); }
@@ -342,16 +394,48 @@ export class DashboardProctorPage extends BasePage {
     _confirmReset(p) {
         createModal({
             title: 'Reset Sesi Peserta',
-            bodyHtml: `<p class="font-inter text-text-primary mb-sm">Reset sesi <strong>${p.name}</strong>?</p>
-                       <p class="text-sm text-text-muted font-inter">Jawaban yang sudah tersimpan tidak akan hilang. Siswa bisa login ulang dan lanjut ujian.</p>`,
+            bodyHtml: `
+                <p class="font-inter text-sm text-text-primary mb-2">Reset sesi ujian <strong>${p.name}</strong>?</p>
+                <p class="font-inter text-xs text-text-muted">Jawaban yang sudah tersimpan tidak akan hilang. Siswa dapat login ulang dan melanjutkan ujian.</p>
+            `,
             footerButtons: [
                 { text: 'Batal', variant: 'secondary', onClick: close => close() },
-                { text: 'Reset', variant: 'primary', onClick: async (close) => {
+                { text: 'Reset Sesi', variant: 'primary', onClick: async (close) => {
                     try {
                         const userId = p.userId.replace('stu_', '');
                         await api.post(`/proctor/exam/${this._examId}/reset/${userId}`);
                         close(); this._fetchParticipants();
-                    } catch (_) { showToast('Gagal reset sesi.', 'error'); close(); }
+                    } catch (_) { close(); }
+                }},
+            ],
+        });
+    }
+
+    _confirmResetDevice(p) {
+        createModal({
+            title: '🔓 Reset Kunci Perangkat',
+            bodyHtml: `
+                <p class="font-inter text-sm text-text-primary mb-3">Reset kunci perangkat milik <strong>${p.name}</strong>?</p>
+                <div class="rounded-lg p-3 mb-3" style="background: #1A0A0A; border: 1px solid #CC000033;">
+                    <p class="font-inter text-xs text-text-muted leading-relaxed">
+                        ⚠️ Gunakan ini <strong class="text-text-primary">HANYA</strong> jika siswa mengalami kendala teknis nyata
+                        (HP rusak, layar pecah, dll). Setelah reset, siswa diizinkan login dari perangkat lain.
+                    </p>
+                </div>
+                <p class="font-inter text-xs text-text-muted">Tindakan ini tercatat dalam audit log.</p>
+            `,
+            footerButtons: [
+                { text: 'Batal', variant: 'secondary', onClick: close => close() },
+                { text: 'Reset Kunci Device', variant: 'primary', onClick: async (close) => {
+                    try {
+                        const userId = p.userId.replace('stu_', '');
+                        await api.post(`/proctor/exam/${this._examId}/reset-device/${userId}`);
+                        close();
+                        this._fetchParticipants();
+                    } catch (e) {
+                        close();
+                        console.error('Reset device error:', e);
+                    }
                 }},
             ],
         });
@@ -360,79 +444,301 @@ export class DashboardProctorPage extends BasePage {
     _confirmClose(exam) {
         createModal({
             title: 'Tutup Ujian',
-            bodyHtml: `<p class="font-inter text-text-primary mb-sm">Tutup ujian <strong>${exam.title}</strong>?</p>
-                       <p class="text-sm text-primary font-inter">Seluruh peserta yang masih mengerjakan akan otomatis di-submit. Tidak dapat dibatalkan.</p>`,
+            bodyHtml: `
+                <p class="font-inter text-sm text-text-primary mb-2">Tutup ujian <strong>${exam.title}</strong>?</p>
+                <p class="font-inter text-xs text-primary">Seluruh peserta yang masih mengerjakan akan otomatis di-submit. Tindakan ini tidak dapat dibatalkan.</p>
+            `,
             footerButtons: [
                 { text: 'Batal', variant: 'secondary', onClick: close => close() },
                 { text: 'Tutup Ujian', variant: 'primary', onClick: async (close) => {
-                    try {
-                        await api.post(`/admin/exams/${exam.id}/complete`);
-                        close(); this._renderTab();
-                    } catch (_) { showToast('Gagal menutup ujian.', 'error'); close(); }
+                    try { await api.post(`/admin/exams/${exam.id}/complete`); close(); this._renderTab(); }
+                    catch (_) { close(); }
                 }},
             ],
         });
     }
 
-    // ── Tab Token ──────────────────────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────────────────
+    // ── TOKEN UJIAN ──────────────────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────────────────
+
     async _tabToken() {
-        const user = authService.getCurrentUser();
-        
-        let wrap = this.contentArea.querySelector('#token-list-wrap');
-        if (!wrap) {
-            this.contentArea.innerHTML = `
-                <h1 class="font-barlow font-extrabold text-page-title text-text-primary mb-xs">TOKEN UJIAN</h1>
-                <p class="font-inter text-text-secondary text-sm mb-xl">
-                    Token yang dimasukkan siswa sebelum mengerjakan ujian di <span class="text-accent-gold font-bold">${user?.room || '(ruang belum diset)'}</span>.
-                </p>
-                <div id="token-list-wrap"></div>`;
-            wrap = this.contentArea.querySelector('#token-list-wrap');
-        }
-        
-        wrap.innerHTML = '';
+        this.contentArea.innerHTML = '';
+        // Header
+        const header = createElement('div', 'mb-6');
+        header.innerHTML = `
+            <h1 class="font-barlow font-extrabold text-2xl text-text-primary leading-none mb-1">Token Ujian</h1>
+            <p class="font-inter text-text-muted text-sm">Token yang diinput siswa sebelum memulai pengerjaan.</p>
+        `;
+        this.contentArea.appendChild(header);
+
+        const wrap = createElement('div', '');
+        this.contentArea.appendChild(wrap);
         wrap.appendChild(this._loading());
 
         try {
-            const examsRes = await api.get('/proctor/my-exams');
-            const exams   = examsRes.data?.data ?? [];
+            const res = await api.get('/proctor/my-exams');
+            this._exams = res.data?.data ?? [];
             wrap.innerHTML = '';
 
-            if (!exams.length) {
-                wrap.innerHTML = `<p class="text-text-muted font-inter text-sm">Tidak ada ujian di ruang kamu.</p>`;
+            if (this._exams.length === 0) {
+                wrap.innerHTML = `
+                    <div class="py-12 text-center">
+                        <span class="material-icons text-text-muted text-3xl block mb-3">key_off</span>
+                        <p class="font-inter text-sm text-text-muted">Tidak ada ujian yang ditugaskan.</p>
+                    </div>
+                `;
                 return;
             }
 
-            exams.forEach(exam => {
-                const card = createElement('div', 'bg-bg-surface-light rounded-card p-lg mb-md');
-                card.innerHTML = `
-                    <div class="flex items-center justify-between mb-md">
-                        <div>
-                            <p class="font-inter font-bold text-text-primary">${exam.title} — ${exam.subject}</p>
-                            <p class="text-xs text-text-muted font-inter">Status: <span class="font-bold ${exam.status === 'active' ? 'text-online' : 'text-text-muted'}">${exam.status}</span></p>
-                        </div>
-                    </div>`;
+            this._exams.forEach((exam, idx) => {
+                const isLast = idx === this._exams.length - 1;
+                const card = createElement('div', `bg-bg-surface rounded-lg p-5 ${!isLast ? 'mb-3' : ''}`);
+                card.style.cssText = 'border: 1px solid #2e2e2e;';
 
-                if (!exam.token) {
-                    const noToken = createElement('p', 'text-xs text-text-muted font-inter italic');
-                    noToken.textContent = 'Belum ada token ujian.';
-                    card.appendChild(noToken);
-                } else {
-                    const row = createElement('div', 'flex items-center justify-between bg-bg-primary rounded-input px-lg py-md mb-sm');
-                    row.innerHTML = `
-                        <span class="font-mono font-extrabold text-2xl text-accent-gold tracking-widest">${exam.token}</span>
-                        <button class="copy-btn material-icons text-text-secondary hover:text-text-primary cursor-pointer" data-token="${exam.token}">content_copy</button>`;
-                    row.querySelector('.copy-btn').onclick = (e) => {
-                        navigator.clipboard?.writeText(e.currentTarget.dataset.token);
-                        e.currentTarget.textContent = 'check';
-                        setTimeout(() => e.currentTarget.textContent = 'content_copy', 2000);
-                    };
-                    card.appendChild(row);
-                }
+                const statusColor = exam.status === 'active' ? 'text-online' : exam.status === 'completed' ? 'text-text-muted' : 'text-accent-gold';
+                card.innerHTML = `
+                    <div class="flex items-start justify-between gap-4 mb-4">
+                        <div class="min-w-0">
+                            <div class="flex items-center gap-2 mb-1">
+                                <span class="font-inter text-xs font-semibold ${statusColor} uppercase tracking-wider">${exam.status}</span>
+                                <span class="text-divider">·</span>
+                                <span class="font-inter text-xs text-text-muted">${exam.subject}</span>
+                            </div>
+                            <h3 class="font-inter font-semibold text-base text-text-primary truncate">${exam.title}</h3>
+                        </div>
+                        ${exam.status === 'active' ? `
+                        <button class="btn-reset-token flex items-center gap-1.5 px-3 py-1.5 rounded font-inter text-xs text-text-muted hover:text-text-primary hover:bg-bg-primary transition-colors border border-divider flex-shrink-0" data-eid="${exam.id}">
+                            <span class="material-icons text-xs">refresh</span>
+                            Generate Baru
+                        </button>` : ''}
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <div class="flex-1 bg-bg-primary rounded-lg px-4 py-3 flex items-center justify-center" style="border:1px solid #C9A84C33">
+                            <span class="font-barlow font-extrabold text-4xl text-accent-gold tracking-widest token-display">${exam.token || '——'}</span>
+                        </div>
+                        <button class="btn-copy-token w-10 h-10 rounded-lg flex items-center justify-center text-text-muted hover:text-text-primary hover:bg-bg-surface transition-colors border border-divider" data-token="${exam.token}" title="Salin token">
+                            <span class="material-icons text-base">content_copy</span>
+                        </button>
+                    </div>
+                    <p class="font-inter text-xs text-text-muted mt-3">Siswa menginput token ini setelah memilih mata pelajaran di aplikasi.</p>
+                `;
+
+                // Copy token
+                card.querySelector('.btn-copy-token')?.addEventListener('click', (e) => {
+                    const t = e.currentTarget.dataset.token;
+                    navigator.clipboard.writeText(t).then(() => {
+                        e.currentTarget.querySelector('.material-icons').textContent = 'check';
+                        setTimeout(() => { e.currentTarget.querySelector('.material-icons').textContent = 'content_copy'; }, 1500);
+                    });
+                });
+
+                // Reset token
+                card.querySelector('.btn-reset-token')?.addEventListener('click', () => {
+                    this._confirmResetToken(exam, card.querySelector('.token-display'));
+                });
+
                 wrap.appendChild(card);
             });
         } catch (_) {
             wrap.innerHTML = '';
-            wrap.appendChild(this._error('Gagal memuat token.', () => this._tabToken()));
+            wrap.appendChild(this._error('Gagal memuat token ujian.', () => this._renderTab()));
         }
+    }
+
+    _confirmResetToken(exam, tokenEl) {
+        createModal({
+            title: 'Generate Token Baru',
+            bodyHtml: `
+                <p class="font-inter text-sm text-text-primary mb-2">Generate token ujian baru untuk <strong>${exam.title}</strong>?</p>
+                <p class="font-inter text-xs text-text-muted">Token lama tidak akan berlaku lagi. Siswa yang belum masuk harus menggunakan token baru.</p>
+            `,
+            footerButtons: [
+                { text: 'Batal', variant: 'secondary', onClick: close => close() },
+                { text: 'Generate Token Baru', variant: 'primary', onClick: async (close) => {
+                    try {
+                        const res = await api.post(`/proctor/exam/${exam.id}/reset-token`);
+                        const newToken = res.data?.data?.token;
+                        if (newToken && tokenEl) tokenEl.textContent = newToken;
+                        close();
+                    } catch (_) { close(); }
+                }},
+            ],
+        });
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // ── LOCK PIN ─────────────────────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────────────────
+
+    async _tabPin() {
+        this.contentArea.innerHTML = '';
+        // Header
+        const header = createElement('div', 'flex items-start justify-between mb-6');
+        header.innerHTML = `
+            <div>
+                <h1 class="font-barlow font-extrabold text-2xl text-text-primary leading-none mb-1">Lock PIN</h1>
+                <p class="font-inter text-text-muted text-sm">Buka blokir ujian siswa terdeteksi curang.</p>
+            </div>
+            <div class="flex items-center gap-2 flex-shrink-0">
+                <span class="material-icons text-primary animate-pulse">lock</span>
+            </div>
+        `;
+        this.contentArea.appendChild(header);
+
+        // Exam selector row
+        const selectorRow = createElement('div', 'flex items-center gap-3 mb-4');
+        selectorRow.innerHTML = `
+            <label class="font-inter text-xs font-semibold text-text-muted uppercase tracking-wider flex-shrink-0">Ujian</label>
+            <select id="proctor-exam-sel" class="flex-1 bg-bg-surface border border-divider rounded p-2.5 font-inter text-sm text-text-primary focus:border-primary outline-none max-w-xs">
+                <option value="">Memuat ujian...</option>
+            </select>
+            <button id="refresh-btn" class="flex items-center gap-1.5 px-3 py-2 rounded font-inter text-xs text-text-muted hover:text-text-primary hover:bg-bg-surface transition-colors border border-divider">
+                <span class="material-icons text-sm">refresh</span>
+                Refresh
+            </button>
+        `;
+        this.contentArea.appendChild(selectorRow);
+
+        // Table area as list container
+        this.tableArea = createElement('div', '');
+        this.contentArea.appendChild(this.tableArea);
+        this.tableArea.appendChild(this._loading());
+
+        // Load exams
+        try {
+            const res = await api.get('/proctor/my-exams');
+            this._exams = res.data?.data ?? [];
+
+            const sel = selectorRow.querySelector('#proctor-exam-sel');
+            sel.innerHTML = `<option value="">-- Pilih Ujian --</option>` +
+                this._exams.map(e => `<option value="${e.id}">${e.title} (${e.subject})${e.status === 'active' ? ' ●' : ''}</option>`).join('');
+
+            sel.onchange = () => {
+                this._stopPoll();
+                this._examId = Number(sel.value) || null;
+                this._fetchParticipants();
+                this._startPoll();
+            };
+
+            selectorRow.querySelector('#refresh-btn').onclick = (e) => this._handleManualRefresh(e.currentTarget);
+
+            // Auto-select active exam
+            const active = this._exams.find(e => e.status === 'active') || this._exams[0];
+            if (active) {
+                sel.value     = active.id;
+                this._examId  = active.id;
+                this._fetchParticipants();
+                this._startPoll();
+            } else {
+                this.tableArea.innerHTML = `
+                    <div class="py-12 text-center">
+                        <span class="material-icons text-text-muted text-3xl block mb-3">event_busy</span>
+                        <p class="font-inter text-sm text-text-muted">Tidak ada ujian yang ditugaskan di ruangan ini.</p>
+                    </div>
+                `;
+            }
+        } catch (e) {
+            this.tableArea.innerHTML = '';
+            this.tableArea.appendChild(this._error('Gagal memuat daftar ujian.', () => this._renderTab()));
+        }
+    }
+
+    _rerenderPinList() {
+        if (!this.tableArea) return;
+        this.tableArea.innerHTML = '';
+
+        const blockedStudents = this._participants.filter(p => p.isBlocked);
+
+        if (blockedStudents.length === 0) {
+            const emptyState = createElement('div', 'py-12 text-center flex flex-col items-center justify-center');
+            emptyState.innerHTML = `
+                <div class="p-6 bg-online bg-opacity-10 rounded-full mb-4 flex items-center justify-center" style="background: rgba(16, 185, 129, 0.1); width: 80px; height: 80px;">
+                    <span class="material-icons text-online text-4xl">verified_user</span>
+                </div>
+                <h3 class="font-inter font-bold text-lg text-text-primary mb-1">Sistem Berjalan Kondusif</h3>
+                <p class="font-inter text-sm text-text-muted font-medium">Tidak ada siswa terblokir di ruang ujian ini.</p>
+            `;
+            this.tableArea.appendChild(emptyState);
+            return;
+        }
+
+        const grid = createElement('div', 'grid grid-cols-1 md:grid-cols-2 gap-4 animate-fade-in');
+        blockedStudents.forEach(student => {
+            const card = createElement('div', 'bg-bg-surface rounded-lg p-5 flex flex-col gap-4');
+            card.style.cssText = 'border: 1.5px solid #CC0000;';
+
+            const pin = student.unlockPin || '----';
+
+            card.innerHTML = `
+                <div class="flex items-center gap-3">
+                    <span class="material-icons text-primary text-xl">lock</span>
+                    <div class="min-w-0 flex-1">
+                        <h3 class="font-inter font-bold text-base text-text-primary truncate">${student.name}</h3>
+                        <p class="font-inter text-xs text-text-muted">${student.nisn || '-'} · ${student.className || '-'}</p>
+                    </div>
+                </div>
+                <hr class="border-divider">
+                <div>
+                    <span class="font-inter text-xs font-semibold text-text-muted uppercase tracking-wider block mb-3">Metode Buka Blokir</span>
+                    <div class="grid grid-cols-2 gap-3">
+                        <!-- Jalur Otomatis -->
+                        <div>
+                            <span class="font-inter text-[10px] font-bold text-text-muted uppercase tracking-wider block mb-2">Jalur Otomatis</span>
+                            <button class="btn-auto-unlock w-full h-11 ${student.unlockPin ? 'bg-primary hover:bg-red-700 cursor-pointer' : 'bg-bg-primary border border-divider cursor-not-allowed opacity-50'} text-white font-inter text-xs font-semibold rounded transition-colors flex items-center justify-center gap-1.5" data-uid="${student.userId}" ${!student.unlockPin ? 'disabled' : ''}>
+                                ${student.unlockPin ? 'BUKA OTOMATIS' : 'PIN TIDAK TERSEDIA'}
+                            </button>
+                        </div>
+                        <!-- Jalur Manual -->
+                        <div>
+                            <span class="font-inter text-[10px] font-bold text-text-muted uppercase tracking-wider block mb-2">Jalur Manual (PIN)</span>
+                            <div class="h-11 flex items-center justify-center bg-bg-primary border border-divider rounded">
+                                <span class="font-barlow font-black text-xl text-accent-gold tracking-widest">${pin}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <p class="font-inter text-[11px] text-text-muted leading-relaxed">
+                    Gunakan Jalur Otomatis untuk membuka layar siswa secara remote. Jika internet siswa bermasalah, bacakan kode PIN manual di atas.
+                </p>
+            `;
+
+            card.querySelector('.btn-auto-unlock').addEventListener('click', async (e) => {
+                const btn = e.currentTarget;
+                const origText = btn.textContent;
+                btn.disabled = true;
+                btn.innerHTML = `<span class="material-icons animate-spin text-sm">progress_activity</span>`;
+
+                try {
+                    const user = authService.getCurrentUser();
+                    const payload = {
+                        studentId: Number(student.userId.replace('stu_', '')) || 0,
+                        studentName: student.name,
+                        examAttemptId: student.examAttemptId,
+                        pin: student.unlockPin,
+                        roomName: user?.room || '',
+                        subjectName: 'Ujian',
+                        fromProctor: true,
+                    };
+
+                    if (this._socket) {
+                        this._socket.emit('pin-generated', payload);
+                    }
+
+                    await new Promise(resolve => setTimeout(resolve, 600));
+
+                    showToast(`Sinyal buka otomatis dikirim ke ${student.name}.`, 'success');
+                } catch (err) {
+                    showToast('Gagal mengirim sinyal otomatis.', 'error');
+                } finally {
+                    btn.disabled = false;
+                    btn.textContent = origText;
+                }
+            });
+
+            grid.appendChild(card);
+        });
+
+        this.tableArea.appendChild(grid);
     }
 }

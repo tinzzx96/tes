@@ -1,15 +1,17 @@
 // src/routes/admin/questionBanks.routes.js
 // ════════════════════════════════════════════════════════════════════════════
-// GANTI FILE INI — tambah:
-//   1. Route import DOCX: POST /:bankId/import
-//   2. listBanks sekarang filter by createdBy untuk role teacher
+// Perubahan dari versi sebelumnya:
+//   + Tambah route GET /v2   → listBanksV2 (search, filter, pagination)
+//   + Tambah route GET /summary → listBanksSummary (3 kartu statistik)
+//   + Tambah route DELETE /bulk → deleteBanksBulk (hapus massal)
 // ════════════════════════════════════════════════════════════════════════════
 
 const router      = require('express').Router();
 const multer      = require('multer');
 const multerConfig= require('../../config/multer');
 const {
-  listBanks, getBank, createBank, updateBank, deleteBank, createRules,
+  listBanks, listBanksV2, listBanksSummary,
+  getBank, createBank, updateBank, deleteBank, deleteBanksBulk, createRules,
 } = require('../../controllers/admin/questionBanks.controller');
 const {
   listQuestions, createQuestion, updateQuestion, deleteQuestion,
@@ -36,11 +38,14 @@ const docxUpload = multer({
 });
 
 // ── Bank CRUD ─────────────────────────────────────────────────────────────────
-router.get('/',    listBanks);
-router.post('/',   createRules, createBank);
-router.get('/:id', getBank);
-router.put('/:id', updateBank);
-router.delete('/:id', deleteBank);
+router.get('/',          listBanks);
+router.get('/summary',   listBanksSummary);    // NEW: 3 kartu summary stats
+router.get('/v2',        listBanksV2);         // NEW: paginated + search + filter
+router.post('/',         createRules, createBank);
+router.delete('/bulk',   deleteBanksBulk);     // NEW: hapus massal
+router.get('/:id',       getBank);
+router.put('/:id',       updateBank);
+router.delete('/:id',    deleteBank);
 
 // ── Import DOCX — endpoint baru ───────────────────────────────────────────────
 // Guru hanya bisa import ke bank soal miliknya (validasi di controller)

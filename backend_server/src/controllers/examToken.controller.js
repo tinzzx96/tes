@@ -16,7 +16,7 @@ async function validateExamToken(req, res, next) {
     const { examId, token } = req.body;
     const examIdInt = +examId;
 
-    // Cari exam dengan examId dan token yang sesuai
+    // Cari exam berdasarkan examId dari database
     const exam = await prisma.exam.findUnique({
       where: { id: examIdInt },
     });
@@ -42,11 +42,22 @@ async function validateExamToken(req, res, next) {
     }
 
     // Cari atau buat exam_attempt — pakai upsert untuk hindari race condition P2002
-    const attempt = await prisma.examAttempt.upsert({
-      where: { userId_examId: { userId, examId: examIdInt } },
-      create: { userId, examId: examIdInt, status: 'waiting' },
-      update: {}, // jika sudah ada, tidak diubah
-    });
+    let attempt;
+    try {
+      attempt = await prisma.examAttempt.upsert({
+        where: { userId_examId: { userId, examId: examIdInt } },
+        create: { userId, examId: examIdInt, status: 'waiting' },
+        update: {}, // jika sudah ada, tidak diubah
+      });
+    } catch (error) {
+      if (error.code === 'P2002') {
+        attempt = await prisma.examAttempt.findUnique({
+          where: { userId_examId: { userId, examId: examIdInt } },
+        });
+      } else {
+        throw error;
+      }
+    }
 
     if (attempt.status === 'submitted') {
       return res.status(422).json({
