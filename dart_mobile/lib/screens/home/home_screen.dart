@@ -46,7 +46,7 @@ class HomeScreenState extends State<HomeScreen> {
     _loadData();
   }
 
-  Future<void> _loadData() async {
+Future<void> _loadData() async {
     if (!mounted) return;
     setState(() {
       _isLoading = true;
@@ -64,8 +64,22 @@ class HomeScreenState extends State<HomeScreen> {
         student = student.copyWith(deviceName: localDeviceName);
       }
 
-      // Ambil jadwal dari server
-      final schedules = await ExamScheduleRepository.fetchToday();
+      // Ambil jadwal dari server.
+      //
+      // FIX (Bug: "Schedule ngaco di Home" — ujian besok/minggu ini ikut
+      // muncul sebagai Today's Exam):
+      // GET /api/exams (dipanggil oleh fetchToday()) TIDAK hanya
+      // mengembalikan ujian hari ini — ia mengembalikan semua ujian yang
+      // sudah waktu mulainya tercapai (startTime <= now) dan belum
+      // melewati endTime, termasuk ujian besok/lusa/minggu ini yang sudah
+      // diaktifkan admin (status: active). Endpoint ini memang dipakai
+      // bersama oleh Home & Schedule Screen, jadi Home WAJIB memfilter
+      // sendiri hanya untuk hari ini menggunakan ExamSchedule.isToday(),
+      // bukan mengasumsikan backend sudah melakukannya.
+      final allSchedules = await ExamScheduleRepository.fetchToday();
+      final now = DateTime.now();
+      final schedules = allSchedules.where((s) => s.isToday(now)).toList();
+
       // Ambil status ujian yang sudah selesai
       final ids = await ExamProgressStore.getCompletedExamIds();
 

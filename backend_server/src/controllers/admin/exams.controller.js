@@ -274,34 +274,15 @@ async function resetToken(req, res, next) {
     const role = req.user.role;
     const userId = req.user.id;
 
+    // FIX (konsisten dengan fix listProctorExams & getProctorParticipants):
+    // Proktor dengan roomId valid boleh generate ulang token untuk ujian
+    // aktif manapun yang dipantaunya — tidak lagi mensyaratkan exam
+    // ter-assign ke classId siswa di ruangannya (lihat penjelasan lengkap
+    // di proctor.controller.js).
     if (role === 'proctor') {
       const proctor = await prisma.user.findUnique({ where: { id: userId }, select: { roomId: true } });
       if (!proctor?.roomId) {
         return forbidden(res, 'Kamu belum memiliki ruang yang ditugaskan.');
-      }
-
-      // Get all classes in proctor's room
-      const studentsInRoom = await prisma.user.findMany({
-        where: { roomId: proctor.roomId, role: 'student' },
-        select: { classId: true },
-        distinct: ['classId'],
-      });
-      const classIds = studentsInRoom.map(s => s.classId).filter(Boolean);
-
-      // Verify if the exam is assigned to any of these classes
-      const isAssigned = await prisma.exam.findFirst({
-        where: {
-          id: examId,
-          examClasses: {
-            some: {
-              classId: { in: classIds }
-            }
-          }
-        }
-      });
-
-      if (!isAssigned) {
-        return forbidden(res, 'Kamu tidak memiliki akses ke ujian ini.');
       }
     }
 

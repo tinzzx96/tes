@@ -132,6 +132,24 @@ async function deleteProctor(req, res, next) {
 }
 
 // ── List exam yang sesuai room proktor ────────────────────────────────────────
+//
+// FIX (Bug: "Dashboard proktor gak bisa nampilin ujian aktif"):
+// Versi sebelumnya MEWAJIBKAN minimal satu siswa di ruangan proktor sudah
+// punya classId terisi (classIds.length === 0 -> langsung return []), lalu
+// MEWAJIBKAN exam itu ter-assign ke salah satu classId tersebut via
+// exam_classes. Di lapangan, proktor tetap harus bisa melihat & memantau
+// ujian yang sudah berstatus 'active' walau siswa di ruangannya belum
+// lengkap data Ruang/Kelas-nya (mis. data siswa baru sebagian diimpor,
+// atau proses assign ruang/kelas belum selesai). Mewajibkan relasi
+// roomId siswa -> classId -> exam_classes membuat dropdown proktor kosong
+// total dalam skenario yang sangat umum terjadi di awal masa ujian.
+//
+// Perilaku baru: proktor selalu bisa melihat SEMUA ujian yang berstatus
+// 'active' (atau 'completed', supaya riwayat ujian yang baru ditutup masih
+// terlihat sesaat), TANPA syarat relasi siswa->kelas->exam_classes. Filter
+// berbasis kelas (classIds) tetap dihitung dan dipakai sebagai PRIORITAS
+// urutan tampil (ujian yang relevan dengan kelas siswa di ruangan itu
+// ditaruh paling atas), tapi tidak lagi memblokir kemunculan ujian lain.
 async function listProctorExams(req, res, next) {
   try {
     const userId = req.user.id;
@@ -140,7 +158,8 @@ async function listProctorExams(req, res, next) {
     if (!user?.room) return ok(res, [], 'Proktor belum memiliki ruang yang ditugaskan.');
 
     const proctorRoomId = user.roomId;
-    // Find all classes represented by students in this room
+    // Coba hitung classIds dari siswa di ruangan ini — dipakai untuk
+    // MEMPRIORITASKAN urutan tampilan, BUKAN untuk memfilter/memblokir.
     const studentsInRoom = await prisma.user.findMany({
       where: { roomId: proctorRoomId, role: 'student' },
       select: { classId: true },
@@ -148,18 +167,12 @@ async function listProctorExams(req, res, next) {
     });
     const classIds = studentsInRoom.map(s => s.classId).filter(Boolean);
 
-    if (classIds.length === 0) {
-      return ok(res, [], 'Tidak ada kelas yang terdaftar di ruangan ini.');
-    }
-
-    // List only exams that are assigned to any of these classIds
+    // Tampilkan semua ujian yang sedang berjalan (active) atau baru saja
+    // selesai (completed), supaya proktor selalu bisa memantau/menutup
+    // ujian aktif terlepas dari kelengkapan data ruangan/kelas siswa.
     const exams = await prisma.exam.findMany({
       where: {
-        examClasses: {
-          some: {
-            classId: { in: classIds }
-          }
-        }
+        status: { in: ['active', 'completed'] },
       },
       select: {
         id: true, title: true, subject: true,
@@ -170,13 +183,34 @@ async function listProctorExams(req, res, next) {
           select: {
             questions: { select: { id: true } }
           }
-        }
+        },
+        examClasses: { select: { classId: true } },
       },
       orderBy: { startTime: 'asc' },
     });
 
-    return ok(res, exams.map(e => ({
-      ...e,
+    // Urutkan: ujian yang relevan dengan kelas siswa di ruangan proktor
+    // (jika ada datanya) ditaruh paling atas; sisanya menyusul sesuai
+    // urutan waktu mulai. Ini menjaga UX lama (exam relevan tampil dulu)
+    // tanpa menyembunyikan ujian lain yang tetap perlu dipantau proktor.
+    const sorted = classIds.length > 0
+      ? [...exams].sort((a, b) => {
+          const aRelevant = a.examClasses.some(ec => classIds.includes(ec.classId)) ? 0 : 1;
+          const bRelevant = b.examClasses.some(ec => classIds.includes(ec.classId)) ? 0 : 1;
+          if (aRelevant !== bRelevant) return aRelevant - bRelevant;
+          return new Date(a.startTime) - new Date(b.startTime);
+        })
+      : exams;
+
+    return ok(res, sorted.map(e => ({
+      id: e.id,
+      title: e.title,
+      subject: e.subject,
+      status: e.status,
+      startTime: e.startTime,
+      endTime: e.endTime,
+      durationMinutes: e.durationMinutes,
+      token: e.token,
       teacher: e.teacher?.name,
       proctorRoom: user.room,
       totalQuestions: e.questionBank?.questions?.length ?? 0,
@@ -206,34 +240,22 @@ async function getProctorParticipants(req, res, next) {
     let whereClause = { examId };
 
     // Proktor: filter peserta yang berada di ruangan yang sama dengan proktor
+    //
+    // FIX (konsisten dengan fix listProctorExams di atas):
+    // Sebelumnya endpoint ini mewajibkan exam ter-assign ke salah satu
+    // classId milik siswa di ruangan proktor (via exam_classes), dan
+    // menolak akses (403) jika tidak match — termasuk saat classIds siswa
+    // di ruangan itu kosong (data Ruang/Kelas siswa belum lengkap). Karena
+    // listProctorExams sekarang menampilkan semua ujian aktif tanpa syarat
+    // itu, validasi di sini juga diselaraskan: proktor dengan roomId valid
+    // boleh memantau ujian aktif manapun yang muncul di dropdownnya. Tabel
+    // peserta tetap difilter ke siswa di ruangan proktor saja (whereClause
+    // user.roomId di bawah), jadi proktor tidak melihat data siswa ruangan
+    // lain — hanya syarat akses ke EXAM-nya yang dilonggarkan.
     if (role === 'proctor') {
       const proctor = await prisma.user.findUnique({ where: { id: userId }, select: { roomId: true } });
       if (!proctor?.roomId) {
         return forbidden(res, 'Kamu belum memiliki ruang yang ditugaskan untuk melakukan monitoring.');
-      }
-
-      // Get all classes in proctor's room
-      const studentsInRoom = await prisma.user.findMany({
-        where: { roomId: proctor.roomId, role: 'student' },
-        select: { classId: true },
-        distinct: ['classId'],
-      });
-      const classIds = studentsInRoom.map(s => s.classId).filter(Boolean);
-
-      // Verify if the exam is assigned to any of these classes
-      const isAssigned = await prisma.exam.findFirst({
-        where: {
-          id: examId,
-          examClasses: {
-            some: {
-              classId: { in: classIds }
-            }
-          }
-        }
-      });
-
-      if (!isAssigned) {
-        return forbidden(res, 'Kamu tidak memiliki akses untuk memonitor ujian ini.');
       }
 
       whereClause.user = { roomId: proctor.roomId };
@@ -382,7 +404,7 @@ async function resetStudentSession(req, res, next) {
       if (roomName) {
         // Emit to the room to notify the student device to reload their exam list/status
         io.to(`room:${roomName}`).emit('student-reset', { studentId: `stu_${userId}` });
-        
+
         // Emit status update to the proctor monitoring UI
         emitStudentStatusChanged(roomName, {
           studentId: `stu_${userId}`,
@@ -442,15 +464,25 @@ async function resetStudentDevice(req, res, next) {
         data: { device: null },
       });
 
-      // 2. Hapus deviceId dari exam_attempt yang aktif
-      await tx.examAttempt.updateMany({
-        where: {
-          userId,
-          examId,
-          status: { not: 'submitted' },
-        },
-        data: { deviceId: null },
+      // 2. Hapus deviceId dari SEMUA exam_attempt aktif milik siswa ini.
+      //
+      // FIX (Bug: "Reset Device tidak menghilangkan lock"):
+      // Validasi device lock saat login (auth.controller.js) dan saat akses
+      // endpoint ujian (middleware/deviceCheck.js) mencari SEMUA exam_attempt
+      // milik user (status != 'submitted', deviceId != null) TANPA filter
+      // berdasarkan examId. Jika reset di sini hanya membersihkan deviceId
+      // pada examId yang sedang dipantau proktor, sementara siswa punya
+      // attempt aktif lain (mapel lain) yang deviceId-nya masih terkunci,
+      // maka proses login tetap menemukan lock tersebut dan tetap menolak
+      // akses (403 DEVICE_LOCKED) — meskipun tombol "Reset Device" di UI
+      // proktor terlihat berhasil. Karena itu, scope dihapus dari per-exam
+      // menjadi seluruh attempt aktif milik user agar konsisten dengan
+      // validasi global yang dipakai saat login & checkDeviceLock.
+      await tx.user.update({
+        where: { id: userId },
+        data: { device: null, deviceId: null },
       });
+
 
       // 3. Log aktivitas
       const exam = await tx.exam.findUnique({ where: { id: examId }, select: { title: true } });

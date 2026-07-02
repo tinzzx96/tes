@@ -535,17 +535,21 @@ class _ExamPlayerScreenState extends State<ExamPlayerScreen>
     // _isDiskualifikasi sudah di-set true — build() otomatis render layar ini.
   }
 
-  void _handlePinGenerated() async {
+void _handlePinGenerated() async {
     final event = SocketService.instance.pinGeneratedEvent.value;
     if (event == null) return;
 
-    // Baca examAttemptId dari secure storage
+    final bool fromProctor = event['fromProctor'] == true;
+    if (!fromProctor) {
+      debugPrint('[ExamPlayerScreen] PIN event dari server (bukan dari proktor), diabaikan di HP siswa.');
+      return;
+    }
+
     const storage = FlutterSecureStorage();
     final attemptIdStr = await storage.read(key: 'exam_attempt_id');
     final attemptId = int.tryParse(attemptIdStr ?? '');
     if (attemptId == null) return;
 
-    // Bandingkan examAttemptId dengan type-safe (socket bisa kirim int atau String)
     final eventAttemptId = event['examAttemptId'];
     final eventAttemptIdInt = eventAttemptId is int
         ? eventAttemptId
@@ -562,13 +566,11 @@ class _ExamPlayerScreenState extends State<ExamPlayerScreen>
       return;
     }
 
-    debugPrint('[ExamPlayerScreen] Menerima PIN unlock baru via WebSocket: $pin');
+    debugPrint('[ExamPlayerScreen] Menerima sinyal Buka Otomatis dari proktor, PIN: $pin');
 
     if (!mounted) return;
 
-    // Pastikan layar blokir sudah ditampilkan sebelum mengisi PIN
     if (!_isBlokir) {
-      // Tunggu hingga state _isBlokir aktif (maks 3 detik)
       for (int i = 0; i < 30; i++) {
         await Future.delayed(const Duration(milliseconds: 100));
         if (!mounted) return;
@@ -578,7 +580,6 @@ class _ExamPlayerScreenState extends State<ExamPlayerScreen>
 
     if (!mounted) return;
 
-    // Isi PIN ke controller dan langsung verifikasi
     _pinController.text = pin;
     await _verifikasiPin();
   }
@@ -1360,7 +1361,7 @@ class _OptionTile extends StatelessWidget {
                   borderRadius: BorderRadius.circular(4),
                   child: Image.network(
                     imageUrl,
-                    maxHeight: 120,
+                    height: 120,
                     fit: BoxFit.contain,
                     errorBuilder: (_, __, ___) => Container(
                       height: 80,

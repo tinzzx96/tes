@@ -72,6 +72,7 @@ model User {
   class     String?  @db.VarChar(20)    // legacy label, tetap ada
   classId   Int?     @map("class_id")   // FK ke tabel classes
   device    String?  @db.VarChar(100)
+  deviceId  String?  @db.VarChar(100) @map("device_id_lock")
   room      String?  @db.VarChar(20)    // legacy room name
   roomId    Int?     @map("room_id")    // FK ke master data room
   role      Role     @default(student)
@@ -88,7 +89,6 @@ model User {
   answers       Answer[]
   proctorSessions Session[]    @relation("ProctorSessions")
   activityLogs    ActivityLog[] @relation("UserActivityLogs")
-
 
   @@map("users")
 }

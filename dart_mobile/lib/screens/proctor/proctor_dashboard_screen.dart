@@ -164,7 +164,7 @@ class _ProctorDashboardScreenState extends State<ProctorDashboardScreen> {
         final idx = _exams.indexWhere((e) => e.id == examId);
         if (idx != -1 && event['token'] != null) {
           final old = _exams[idx];
-          _exams[idx] = ProctorExam(
+            _exams[idx] = ProctorExam(
             id: old.id,
             title: old.title,
             subject: old.subject,
@@ -172,6 +172,7 @@ class _ProctorDashboardScreenState extends State<ProctorDashboardScreen> {
             status: event['status']?.toString() ?? old.status,
             token: event['token'].toString(),
             teacher: old.teacher,
+            totalQuestions: old.totalQuestions,
           );
         } else {
           // General reload of exams list to sync states
@@ -1203,6 +1204,7 @@ class _BlockedStudentWidgetState extends State<_BlockedStudentWidget> {
         'pin': widget.student.unlockPin,
         'roomName': widget.roomName,
         'subjectName': 'Ujian',
+        'fromProctor': true,
       };
 
       SocketService.instance.emit('pin-generated', payload);

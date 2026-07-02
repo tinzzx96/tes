@@ -92,7 +92,7 @@ async function login(req, res, next) {
     //    Jika login dari web/browser (device_id tidak ada), tolak akses siswa ke dashboard web.
     // 2. Jika siswa memiliki sesi ujian aktif yang sudah terkunci ke suatu perangkat,
     //    maka device_id yang dikirimkan wajib cocok.
-    if (user.role === 'student') {
+if (user.role === 'student') {
       if (!incomingDeviceId) {
         return res.status(403).json({
           success: false,
@@ -123,7 +123,38 @@ async function login(req, res, next) {
           },
         });
       }
-    }
+
+      // ── FIX: First-Login-Device-Lock ──────────────────────────────────────
+      // Bug sebelumnya: user.device (field "nama perangkat" di profil siswa,
+      // ditampilkan di Device Status Card) ditimpa begitu saja setiap login
+      // selama ada incomingDeviceId, TANPA membandingkan dengan device yang
+      // sudah pernah tercatat. Ini membuat device manapun — termasuk request
+      // yang dipalsukan dari web/Postman menyamar sebagai mobile — bisa
+      // "menabrak" dan menimpa device asli siswa yang sudah lebih dulu login,
+      // SELAMA belum ada exam_attempt yang benar-benar mengunci deviceId
+      // (mis. sesaat setelah reset device oleh proktor, sebelum siswa mulai
+      // ujian). Sekarang user.device sendiri diperlakukan sebagai lock:
+      // begitu terisi pertama kali (login pertama setelah akun dibuat atau
+      // setelah direset proktor), device_id tersebut MENGUNCI siapa yang
+      // boleh login berikutnya, sampai direset lagi oleh proktor/admin.
+      if (user.device && user.device !== (device_name?.trim() || incomingDeviceId)) {
+        // Profil sudah punya device terverifikasi, tapi device_name yang
+        // datang sekarang berbeda. Ini TIDAK otomatis berarti device_id-nya
+        // juga berbeda (nama bisa sama walau device_id beda dalam kasus
+        // langka), jadi bandingkan berdasarkan device_id asli yang tersimpan
+        // jika ada (lebih akurat daripada cuma device_name).
+      }
+      // Bandingkan berdasarkan storedDeviceId yang sebenarnya (lebih akurat
+      // daripada device_name yang hanya label tampilan).
+      if (user.deviceId && user.deviceId !== incomingDeviceId) {
+        return res.status(403).json({
+          success: false,
+          error: {
+            code:    'DEVICE_MISMATCH',
+            message: 'Akses Ditolak. Akun ini sudah terverifikasi pada perangkat lain. Hubungi pengawas untuk mereset kunci perangkat jika Anda berganti HP.',
+          },
+        });
+      }}
     // ── END DEVICE LOCK VALIDATION ────────────────────────────────────────────
 
     // Set student's room dynamically based on the session they log in with and log activity in a transaction
@@ -139,6 +170,9 @@ async function login(req, res, next) {
       // Simpan device_id & device_name ke profil user (untuk tampilan Device Status)
       if (incomingDeviceId) {
         updateData.device = device_name?.trim() || incomingDeviceId;
+        if (!user.deviceId) {
+          updateData.deviceId = incomingDeviceId;
+        }
       }
 
       if (Object.keys(updateData).length > 0) {
